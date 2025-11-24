@@ -28,19 +28,19 @@ curl -sL https://raw.githubusercontent.com/JungleeAadmi/LootLook/main/install.sh
 Update App (Pull latest changes and rebuild):
 
 ```
-curl -sL [https://raw.githubusercontent.com/JungleeAadmi/LootLook/main/update.sh] | bash
+curl -sL https://raw.githubusercontent.com/JungleeAadmi/LootLook/main/update.sh | bash
 
 ```
 ### Stop & Backup (Stops service, backs up DB, leaves files):
 
 ```
-curl -sL [https://raw.githubusercontent.com/JungleeAadmi/LootLook/main/remove.sh] | bash
+curl -sL https://raw.githubusercontent.com/JungleeAadmi/LootLook/main/remove.sh | bash
 
 ```
 
 ### Nuke (Delete EVERYTHING):
 ```
-curl -sL [https://raw.githubusercontent.com/JungleeAadmi/LootLook/main/nuke.sh] | bash
+curl -sL https://raw.githubusercontent.com/JungleeAadmi/LootLook/main/nuke.sh | bash
 
 ```
 
