@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import './index.css';
 
-const API_URL = 'http://' + window.location.hostname + ':3001/api';
+// FIX: Use relative path. The browser will automatically use the current server.
+const API_URL = '/api';
 
 function App() {
   const [items, setItems] = useState([]);
@@ -11,30 +12,39 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [history, setHistory] = useState([]);
-  const [refreshing, setRefreshing] = useState(false); // New state for manual refresh
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => { fetchItems(); }, []);
 
   const fetchItems = async () => {
     try {
       const res = await fetch(`${API_URL}/items`);
+      if (!res.ok) throw new Error("Server error");
       const json = await res.json();
       setItems(json.data);
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("Fetch failed:", err); }
   };
 
   const handleAdd = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await fetch(`${API_URL}/items`, {
+      const res = await fetch(`${API_URL}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, retention: parseInt(retention) })
       });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to add");
+      }
+      
       setUrl('');
       fetchItems();
-    } catch (err) { alert("Error adding item"); }
+    } catch (err) { 
+      alert("Error: " + err.message + "\n(Check server logs if this persists)"); 
+    }
     setLoading(false);
   };
 
@@ -45,22 +55,17 @@ function App() {
     fetchItems();
   };
 
-  // New Force Refresh Function
   const handleRefresh = async (id) => {
     setRefreshing(true);
     try {
         const res = await fetch(`${API_URL}/refresh/${id}`, { method: 'POST' });
         if(res.ok) {
-            // Reload history and list
-            await openHistory(selectedItem); // Reload chart
-            await fetchItems(); // Reload list prices
+            await openHistory(selectedItem);
+            await fetchItems();
         } else {
-            alert("Refresh failed. Check logs.");
+            alert("Refresh failed.");
         }
-    } catch(err) {
-        console.error(err);
-        alert("Network error");
-    }
+    } catch(err) { alert("Network error"); }
     setRefreshing(false);
   };
 
@@ -85,7 +90,11 @@ function App() {
   return (
     <div className="app-container">
       <header className="header">
-        <div className="logo"><span className="logo-icon">🔍</span> LootLook</div>
+        <div className="logo">
+            {/* UPDATED: Uses your SVG logo */}
+            <img src="/logo.svg" alt="LootLook" className="logo-img" /> 
+            LootLook
+        </div>
       </header>
 
       <div className="add-section">
@@ -132,6 +141,7 @@ function App() {
             </div>
           </div>
         ))}
+        {items.length === 0 && !loading && <div className="empty-state">No loot tracked yet. Add a link above!</div>}
       </div>
 
       {selectedItem && (
