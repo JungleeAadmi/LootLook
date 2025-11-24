@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import './index.css';
 
-// FIX: Use relative path. The browser will automatically use the current server.
 const API_URL = '/api';
 
 function App() {
@@ -28,12 +27,20 @@ function App() {
   const handleAdd = async (e) => {
     e.preventDefault();
     setLoading(true);
+
+    const timeout = setTimeout(() => {
+        setLoading(false);
+        alert("Server took too long. Check logs.");
+    }, 60000);
+
     try {
       const res = await fetch(`${API_URL}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, retention: parseInt(retention) })
       });
+      
+      clearTimeout(timeout);
       
       if (!res.ok) {
         const err = await res.json();
@@ -43,7 +50,8 @@ function App() {
       setUrl('');
       fetchItems();
     } catch (err) { 
-      alert("Error: " + err.message + "\n(Check server logs if this persists)"); 
+      clearTimeout(timeout);
+      alert("Error: " + err.message); 
     }
     setLoading(false);
   };
@@ -60,8 +68,8 @@ function App() {
     try {
         const res = await fetch(`${API_URL}/refresh/${id}`, { method: 'POST' });
         if(res.ok) {
-            await openHistory(selectedItem);
-            await fetchItems();
+            if(selectedItem) openHistory(selectedItem);
+            fetchItems();
         } else {
             alert("Refresh failed.");
         }
@@ -75,67 +83,70 @@ function App() {
       const res = await fetch(`${API_URL}/history/${item.id}`);
       const json = await res.json();
       const formatted = json.data.map(p => ({
-        date: new Date(p.date).toLocaleDateString(undefined, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}),
+        date: new Date(p.date).toLocaleDateString(undefined, {month:'short', day:'numeric'}),
         price: p.price
       }));
       setHistory(formatted);
     } catch (err) { console.error(err); }
   };
 
-  const closeModal = () => {
-    setSelectedItem(null);
-    setHistory([]);
-  };
-
   return (
     <div className="app-container">
+      {/* HEADER SECTION */}
       <header className="header">
-        <div className="logo">
-            {/* UPDATED: Uses your SVG logo */}
-            <img src="/logo.svg" alt="LootLook" className="logo-img" /> 
-            LootLook
+        <div className="brand">
+            {/* FIXED: Inline styles force the size, ignoring cache issues */}
+            <img 
+                src="/logo.svg" 
+                alt="Logo" 
+                className="logo-icon" 
+                style={{ height: '50px', width: '50px', marginRight: '15px' }} 
+            />
+            <h1>LootLook</h1>
         </div>
       </header>
 
-      <div className="add-section">
-        <form onSubmit={handleAdd}>
-          <div className="input-group">
+      {/* SEARCH/ADD SECTION */}
+      <div className="add-container">
+        <form onSubmit={handleAdd} className="add-form">
             <input 
               type="url" 
               placeholder="Paste product link here..." 
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               required
+              className="url-input"
             />
-            <div className="retention-wrapper">
-              <label>Keep Data:</label>
-              <select value={retention} onChange={(e) => setRetention(e.target.value)}>
-                <option value="7">7 Days</option>
-                <option value="30">30 Days</option>
-                <option value="90">90 Days</option>
-                <option value="365">1 Year</option>
-              </select>
+            <div className="controls">
+                <select 
+                    value={retention} 
+                    onChange={(e) => setRetention(e.target.value)}
+                    className="retention-select"
+                >
+                    <option value="30">Keep 30 Days</option>
+                    <option value="90">Keep 90 Days</option>
+                    <option value="365">Keep 1 Year</option>
+                </select>
+                <button type="submit" disabled={loading} className="track-btn">
+                    {loading ? 'Scanning...' : 'Track Price'}
+                </button>
             </div>
-          </div>
-          <button type="submit" disabled={loading}>
-            {loading ? 'Scanning...' : 'Track Price'}
-          </button>
         </form>
       </div>
 
+      {/* ITEMS GRID */}
       <div className="items-grid">
         {items.map(item => (
           <div key={item.id} className="item-card" onClick={() => openHistory(item)}>
             <div className="card-image" style={{backgroundImage: `url(${item.image_url})`}}>
-               <div className="retention-badge">{item.retention_days}d History</div>
+               <div className="history-badge">Click for History</div>
             </div>
-            <div className="card-content">
+            <div className="card-details">
               <h3>{item.name}</h3>
-              <div className="price-tag">
-                <span className="current">{item.currency}{item.current_price}</span>
-              </div>
-              <div className="meta">
-                Last check: {new Date(item.last_checked).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+              <div className="price-row">
+                {/* Shows currency correctly */}
+                <span className="price">{item.currency}{item.current_price}</span>
+                <span className="date">Checked: {new Date(item.last_checked).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </div>
               <button className="delete-btn" onClick={(e) => handleDelete(e, item.id)}>Remove</button>
             </div>
@@ -144,14 +155,15 @@ function App() {
         {items.length === 0 && !loading && <div className="empty-state">No loot tracked yet. Add a link above!</div>}
       </div>
 
+      {/* HISTORY MODAL */}
       {selectedItem && (
-        <div className="modal-overlay" onClick={closeModal}>
+        <div className="modal-overlay" onClick={() => setSelectedItem(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>{selectedItem.name.substring(0, 30)}...</h2>
-              <button className="close-btn" onClick={closeModal}>×</button>
+              <h2>Price History</h2>
+              <button className="close-icon" onClick={() => setSelectedItem(null)}>×</button>
             </div>
-            <div className="chart-container">
+            <div className="chart-wrapper">
               {history.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={history}>
@@ -161,19 +173,13 @@ function App() {
                     <Line type="monotone" dataKey="price" stroke="#38bdf8" strokeWidth={3} dot={{r: 4}} />
                   </LineChart>
                 </ResponsiveContainer>
-              ) : (
-                <p>Not enough data for a graph yet.</p>
-              )}
+              ) : <p className="no-data">Collecting data...</p>}
             </div>
-            <div className="modal-actions" style={{display:'flex', gap:'10px'}}>
-                <button 
-                    onClick={() => handleRefresh(selectedItem.id)} 
-                    disabled={refreshing}
-                    style={{flex:1, background: refreshing ? '#64748b' : '#38bdf8'}}
-                >
-                    {refreshing ? 'Checking...' : 'Check Price Now'}
+            <div className="modal-actions">
+                <button onClick={() => handleRefresh(selectedItem.id)} disabled={refreshing} className="refresh-btn">
+                    {refreshing ? 'Updating...' : 'Check Price Now'}
                 </button>
-                <a href={selectedItem.url} target="_blank" rel="noreferrer" className="visit-btn" style={{flex:1}}>
+                <a href={selectedItem.url} target="_blank" rel="noreferrer" className="visit-btn">
                     Visit Store
                 </a>
             </div>
