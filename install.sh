@@ -9,24 +9,38 @@ REPO_URL="https://github.com/JungleeAadmi/LootLook.git"
 echo ">>> 🔍 Starting LootLook Installation..."
 echo ">>> Target Directory: $APP_DIR"
 
-# 1. System Prep & Timezone (Critical for schedulers)
+# 1. System Prep & Timezone
 echo ">>> [1/6] System Preparation..."
+
+# Fix: Force apt to not ask questions (Non-Interactive Mode)
+export DEBIAN_FRONTEND=noninteractive
+
 if [ "$EUID" -ne 0 ]; then
-  echo "--- Requesting sudo permissions for system updates..."
+  echo "--- Requesting sudo permissions..."
+  # We use < /dev/tty here to ensure password prompt works via curl pipe
+  sudo -v < /dev/tty
 fi
-sudo apt-get update && sudo apt-get upgrade -y
+
+echo "--- Updating System..."
+sudo -E apt-get update && sudo -E apt-get upgrade -y
 
 echo "--- Configuring Timezone..."
-# Non-interactive timezone config to prevent hanging in curl pipe
-if [ ! -f /etc/timezone ]; then
-    sudo dpkg-reconfigure tzdata
+# Logic: If running via curl pipe, explicitly force input from terminal (/dev/tty)
+if [ ! -f /etc/timezone ] && [ ! -f /etc/localtime ]; then
+    echo "--- Timezone not set. Launching selector..."
+    # THE FIX: < /dev/tty tells it to listen to keyboard, not the curl pipe
+    sudo dpkg-reconfigure tzdata < /dev/tty
 else
-    echo "--- Timezone already set to $(cat /etc/timezone)"
+    # If it exists, we just show it. 
+    # If you WANT to change it, run: sudo dpkg-reconfigure tzdata
+    CURRENT_TZ=$(cat /etc/timezone 2>/dev/null || date +%Z)
+    echo "--- Timezone is currently: $CURRENT_TZ"
 fi
 
-# 2. Install System Dependencies (Ubuntu Plucky/Modern Support)
+# 2. Install System Dependencies
 echo ">>> [2/6] Installing System Dependencies..."
-sudo apt-get install -y \
+# -E preserves environment variables (like noninteractive)
+sudo -E apt-get install -y \
   curl git unzip sqlite3 \
   ca-certificates fonts-liberation libasound2t64 \
   libatk-bridge2.0-0t64 libatk1.0-0t64 libc6 libcairo2 libcups2t64 \
@@ -51,10 +65,10 @@ fi
 echo ">>> [4/6] Setting up Node.js..."
 if ! command -v node &> /dev/null; then
     echo "--- Installing Node.js 20..."
+    # We pipe this to bash, but it's non-interactive so it's safe
     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-    sudo apt-get install -y nodejs
+    sudo -E apt-get install -y nodejs
 fi
-# Ensure PM2 is installed
 sudo npm install -g pm2
 
 # 5. Application Build
@@ -73,9 +87,9 @@ pm2 delete lootlook 2>/dev/null || true
 cd "$APP_DIR/server"
 pm2 start index.js --name lootlook
 pm2 save
-pm2 startup | grep "sudo" | bash 2>/dev/null # Auto-configure startup
+pm2 startup | grep "sudo" | bash 2>/dev/null
 
-# Make scripts executable for local use later
+# Make scripts executable
 chmod +x "$APP_DIR"/*.sh
 
 echo "✅ LootLook Installation Complete!"
