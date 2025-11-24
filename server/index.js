@@ -21,18 +21,31 @@ app.get('/api/items', (req, res) => {
     });
 });
 
-// 2. ADD NEW ITEM
+// 2. ADD NEW ITEM (FIXED: Now saves currency)
 app.post('/api/items', async (req, res) => {
     const { url, retention } = req.body;
     const data = await scrapeProduct(url);
     if (!data) return res.status(500).json({ error: "Could not scrape link" });
 
-    const sql = `INSERT INTO items (url, name, image_url, current_price, retention_days, last_checked) VALUES (?, ?, ?, ?, ?, ?)`;
-    const params = [url, data.title, data.image, data.price, retention || 30, new Date().toISOString()];
+    // UPDATED SQL: Added 'currency' column
+    const sql = `INSERT INTO items (url, name, image_url, current_price, currency, retention_days, last_checked) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    const params = [
+        url, 
+        data.title, 
+        data.image, 
+        data.price, 
+        data.currency || '$', // Save the detected currency
+        retention || 30, 
+        new Date().toISOString()
+    ];
 
     db.run(sql, params, function(err) {
         if (err) return res.status(400).json({ error: err.message });
-        db.run(`INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)`, [this.lastID, data.price, new Date().toISOString()]);
+        
+        // Save initial price history
+        db.run(`INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)`, 
+            [this.lastID, data.price, new Date().toISOString()]);
+            
         res.json({ message: "Item added", id: this.lastID, ...data });
     });
 });
@@ -53,7 +66,7 @@ app.get('/api/history/:id', (req, res) => {
     });
 });
 
-// 5. FORCE REFRESH
+// 5. FORCE REFRESH (FIXED: Now updates currency if it changes)
 app.post('/api/refresh/:id', (req, res) => {
     const id = req.params.id;
     db.get("SELECT * FROM items WHERE id = ?", [id], async (err, item) => {
@@ -61,11 +74,14 @@ app.post('/api/refresh/:id', (req, res) => {
 
         const freshData = await scrapeProduct(item.url);
         if (freshData) {
-            db.run("UPDATE items SET current_price = ?, last_checked = ? WHERE id = ?", 
-                [freshData.price, new Date().toISOString(), id]);
+            // UPDATED SQL: Now updates currency too
+            db.run("UPDATE items SET current_price = ?, currency = ?, last_checked = ? WHERE id = ?", 
+                [freshData.price, freshData.currency || '$', new Date().toISOString(), id]);
+                
             db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", 
                 [id, freshData.price, new Date().toISOString()]);
-            res.json({ message: "Updated", price: freshData.price });
+                
+            res.json({ message: "Updated", price: freshData.price, currency: freshData.currency });
         } else {
             res.status(500).json({ error: "Scrape failed" });
         }
@@ -81,12 +97,12 @@ cron.schedule('0 */6 * * *', () => {
         for (const item of rows) {
             const freshData = await scrapeProduct(item.url);
             if (freshData && freshData.price !== item.current_price) {
-                db.run("UPDATE items SET current_price = ?, last_checked = ? WHERE id = ?", [freshData.price, new Date().toISOString(), item.id]);
-                db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", [item.id, freshData.price, new Date().toISOString()]);
-                
-                if (freshData.price < item.current_price) {
-                     // Notification Logic
-                }
+                // Update price AND currency automatically
+                db.run("UPDATE items SET current_price = ?, currency = ?, last_checked = ? WHERE id = ?", 
+                    [freshData.price, freshData.currency || '$', new Date().toISOString(), item.id]);
+                    
+                db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", 
+                    [item.id, freshData.price, new Date().toISOString()]);
             }
         }
     });
@@ -104,11 +120,9 @@ cron.schedule('0 0 * * *', () => {
     });
 });
 
-// --- SERVE REACT FRONTEND (THE MISSING PIECE) ---
-// This tells the server to look in the client/dist folder for the website files
+// --- SERVE REACT FRONTEND ---
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// If a user asks for a page we don't know, give them index.html (React Router handles the rest)
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });

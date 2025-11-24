@@ -1,18 +1,20 @@
-/* ... KEEP EXISTING VARIABLES AT THE TOP ... */
+/* ... Keep existing root variables ... */
 :root {
+  --bg-dark: #0f172a;
+  --bg-card: #1e293b;
   --primary: #38bdf8;
-  --bg: #0f172a;
-  --card: #1e293b;
-  --text: #f1f5f9;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent-green: #4ade80;
   --danger: #ef4444;
 }
 
-/* ... KEEP BODY STYLE ... */
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: var(--bg);
-  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
 }
 
 .app-container {
@@ -21,224 +23,63 @@ body {
   padding: 20px;
 }
 
-/* Header */
+/* --- Header Fixed --- */
 .header {
   display: flex;
-  align-items: center;
+  justify-content: center;
+  padding: 20px 0; /* Reduced padding */
   margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #334155;
 }
 
-.logo {
-  font-size: 1.5rem;
-  font-weight: bold;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* FIX: Force specific dimensions so it can't be huge */
+.logo-icon {
+  height: 40px; 
+  width: 40px;
+  object-fit: contain; /* Ensures logo doesn't stretch */
+}
+
+h1 {
+  font-size: 1.8rem; /* Slightly smaller text to match */
+  font-weight: 800;
   color: var(--primary);
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  margin: 0;
+  letter-spacing: -0.5px;
 }
 
-/* --- NEW INPUT FORM STYLES --- */
-.add-section form {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap; /* Allow wrapping on small screens */
-}
+/* ... Keep the rest of your CSS exactly the same ... */
 
-.input-group {
-  flex: 1;
-  display: flex;
-  gap: 10px;
-  min-width: 280px;
-}
-
-input {
-  flex: 1;
-  padding: 15px;
-  border-radius: 8px;
-  border: 1px solid #334155;
-  background: var(--card);
-  color: white;
-  font-size: 1rem;
-}
-
-.retention-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  background: var(--card);
-  border: 1px solid #334155;
-  border-radius: 8px;
-  padding: 0 10px;
-}
-
-.retention-wrapper label {
-    font-size: 0.8rem;
-    color: #94a3b8;
-    white-space: nowrap;
-}
-
-select {
-    background: transparent;
-    border: none;
-    color: var(--primary);
-    font-weight: bold;
-    padding: 10px 0;
-    cursor: pointer;
-    outline: none;
-}
-
-button {
-  padding: 0 25px;
-  background: var(--primary);
-  border: none;
-  border-radius: 8px;
-  color: #000;
-  font-weight: bold;
-  cursor: pointer;
-  white-space: nowrap;
-}
-button:hover { opacity: 0.9; }
-
-/* Grid & Cards */
-.items-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-}
-
-.item-card {
-  background: var(--card);
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid #334155;
-  transition: transform 0.2s;
-  cursor: pointer; /* Show it's clickable */
-  position: relative;
-}
-
-.item-card:hover { transform: translateY(-2px); border-color: var(--primary); }
-
-.card-image {
-  height: 180px;
-  background-size: cover;
-  background-position: center;
-  background-color: #000;
-  position: relative;
-}
-
-.retention-badge {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(0,0,0,0.7);
-    color: #fff;
-    font-size: 0.7rem;
-    padding: 2px 8px;
-    border-radius: 10px;
-    border: 1px solid #334155;
-}
-
-.card-content { padding: 15px; }
-
-h3 {
-  margin: 0 0 10px 0;
-  font-size: 1rem;
-  line-height: 1.4;
-  height: 2.8em;
-  overflow: hidden;
-}
-
-.price-tag {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #4ade80;
-  margin-bottom: 10px;
-}
-
-.meta {
-  font-size: 0.8rem;
-  color: #94a3b8;
-  margin-bottom: 15px;
-}
-
-.delete-btn {
-  width: 100%;
-  background: transparent;
-  border: 1px solid var(--danger);
-  color: var(--danger);
-  padding: 8px;
-}
-.delete-btn:hover { background: var(--danger); color: white; }
-
-/* --- MODAL STYLES (NEW) --- */
-.modal-overlay {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    backdrop-filter: blur(3px);
-    padding: 20px;
-}
-
-.modal-content {
-    background: var(--bg);
-    border: 1px solid #334155;
-    padding: 25px;
-    border-radius: 16px;
-    width: 100%;
-    max-width: 600px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 20px;
-}
-
-.modal-header h2 { margin: 0; font-size: 1.2rem; color: var(--text); }
-
-.close-btn {
-    background: none;
-    border: none;
-    color: #94a3b8;
-    font-size: 2rem;
-    line-height: 1;
-    padding: 0;
-}
-.close-btn:hover { color: #fff; }
-
-.chart-container {
-    width: 100%;
-    height: 300px;
-    background: var(--card);
-    border-radius: 8px;
-    padding: 10px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.visit-btn {
-    display: block;
-    text-align: center;
-    background: var(--primary);
-    color: #0f172a;
-    text-decoration: none;
-    padding: 12px;
-    border-radius: 8px;
-    font-weight: bold;
-}
-.visit-btn:hover { opacity: 0.9; }
-
-@media (max-width: 600px) {
-  .add-section form { flex-direction: column; }
-  .input-group { flex-direction: column; }
-}
+/* --- Add Form --- */
+.add-container { max-width: 800px; margin: 0 auto 50px auto; }
+.add-form { background: var(--bg-card); padding: 8px; border-radius: 12px; display: flex; gap: 10px; border: 1px solid #334155; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.url-input { flex: 1; background: transparent; border: none; color: white; padding: 15px; font-size: 1rem; outline: none; }
+.controls { display: flex; gap: 10px; }
+.retention-select { background: #0f172a; color: var(--text-muted); border: 1px solid #334155; border-radius: 8px; padding: 0 15px; cursor: pointer; }
+.track-btn { background: var(--primary); color: #0f172a; border: none; padding: 0 30px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.track-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
+.item-card { background: var(--bg-card); border-radius: 16px; overflow: hidden; border: 1px solid #334155; transition: all 0.3s ease; cursor: pointer; position: relative; }
+.item-card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+.card-image { height: 200px; background-size: cover; background-position: center; position: relative; }
+.history-badge { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+.card-details { padding: 20px; }
+.card-details h3 { margin: 0 0 15px 0; font-size: 1.1rem; line-height: 1.4; height: 3em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.price-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.price { font-size: 1.8rem; font-weight: 800; color: var(--accent-green); }
+.date { font-size: 0.8rem; color: var(--text-muted); }
+.delete-btn { width: 100%; padding: 10px; background: transparent; border: 1px solid #334155; color: var(--danger); border-radius: 8px; cursor: pointer; font-weight: 600; }
+.delete-btn:hover { background: rgba(239, 68, 68, 0.1); border-color: var(--danger); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 999; backdrop-filter: blur(5px); }
+.modal-content { background: var(--bg-card); width: 90%; max-width: 600px; border-radius: 20px; padding: 30px; border: 1px solid #334155; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.close-icon { background: none; border: none; color: var(--text-muted); font-size: 2rem; cursor: pointer; }
+.modal-actions { display: flex; gap: 15px; margin-top: 20px; }
+.refresh-btn, .visit-btn { flex: 1; padding: 12px; border-radius: 10px; font-weight: 600; text-align: center; text-decoration: none; cursor: pointer; border: none; }
+.refresh-btn { background: var(--bg-dark); color: var(--primary); border: 1px solid var(--primary); }
+.visit-btn { background: var(--primary); color: var(--bg-dark); }
+@media (max-width: 600px) { .add-form { flex-direction: column; padding: 15px; } .controls { width: 100%; } .retention-select, .track-btn { flex: 1; padding: 12px; } }
