@@ -123,3 +123,35 @@ h3 { margin: 0 0 5px 0; font-size: 1rem; color: var(--text-main); display: -webk
     .items-container.grid .price { font-size: 1.1rem; }
     .items-container.grid .btn-action { font-size: 0.7rem; padding: 8px 2px; }
 }
+
+/* ... [Keep all previous CSS] ... */
+
+/* HEADER ACTIONS */
+.header-actions { display: flex; gap: 15px; align-items: center; }
+
+/* SYNC BUTTON */
+.sync-btn { 
+    background: transparent; 
+    border: 1px solid var(--border); 
+    color: var(--text-main); 
+    border-radius: 50%; 
+    width: 35px; height: 35px; 
+    font-size: 1.2rem; 
+    cursor: pointer; 
+    display: flex; align-items: center; justify-content: center; 
+    padding-bottom: 3px; /* Align checkmark/symbol */
+}
+.sync-btn:hover { background: var(--bg-card); border-color: var(--primary); color: var(--primary); }
+
+/* SPIN ANIMATION */
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.spinning { animation: spin 1s linear infinite; color: var(--primary); border-color: var(--primary); }
+
+/* DATE ADDED STYLE */
+.meta-row { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-top: 5px; 
+}
+.date-added { font-size: 0.65rem; color: var(--text-muted); }

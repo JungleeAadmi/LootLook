@@ -14,16 +14,18 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 function initDb() {
     db.serialize(() => {
-        // 1. Create Items Table (if not exists)
+        // 1. Create Items Table
         db.run(`CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             url TEXT NOT NULL,
             name TEXT,
             image_url TEXT,
             current_price REAL,
+            previous_price REAL DEFAULT 0,
             currency TEXT DEFAULT '$',
             retention_days INTEGER DEFAULT 30,
-            last_checked TEXT
+            last_checked TEXT,
+            date_added TEXT
         )`);
 
         // 2. Create Price History Table
@@ -35,14 +37,19 @@ function initDb() {
             FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE
         )`);
 
-        // 3. MIGRATION: Add 'previous_price' column if it doesn't exist
-        // This allows us to track trends (Green/Red colors)
+        // 3. MIGRATIONS (Auto-update old databases)
         db.all("PRAGMA table_info(items)", (err, columns) => {
             if (err) return;
-            const hasPrevPrice = columns.some(c => c.name === 'previous_price');
-            if (!hasPrevPrice) {
-                console.log("Migrating Database: Adding previous_price column...");
+            const colNames = columns.map(c => c.name);
+            
+            if (!colNames.includes('previous_price')) {
+                console.log("Migrating: Adding previous_price...");
                 db.run("ALTER TABLE items ADD COLUMN previous_price REAL DEFAULT 0");
+            }
+            if (!colNames.includes('date_added')) {
+                console.log("Migrating: Adding date_added...");
+                // Default to current time for existing items
+                db.run(`ALTER TABLE items ADD COLUMN date_added TEXT DEFAULT '${new Date().toISOString()}'`);
             }
         });
     });
