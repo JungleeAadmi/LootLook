@@ -5,34 +5,25 @@ import './index.css';
 const API_URL = '/api';
 
 function App() {
-  // --- STATE ---
   const [items, setItems] = useState([]);
   const [url, setUrl] = useState('');
   const [retention, setRetention] = useState(30);
   const [loading, setLoading] = useState(false);
-  
-  // UI States
   const [theme, setTheme] = useState(localStorage.getItem('lootlook-theme') || 'dark');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('grid');
   const [filterDomain, setFilterDomain] = useState('ALL');
-  
-  // Modals
-  const [selectedItem, setSelectedItem] = useState(null); // For History/Graph
-  const [editingItem, setEditingItem] = useState(null);   // For Edit Modal
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
   const [history, setHistory] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => { 
       fetchItems(); 
-      document.body.className = theme; // Apply theme to body
+      document.body.className = theme; 
   }, [theme]);
 
-  // --- HELPERS ---
   const getDomain = (url) => {
-      try {
-          const hostname = new URL(url).hostname;
-          return hostname.replace('www.', '');
-      } catch (e) { return 'unknown'; }
+      try { return new URL(url).hostname.replace('www.', ''); } catch (e) { return 'unknown'; }
   };
 
   const toggleTheme = () => {
@@ -41,7 +32,21 @@ function App() {
       localStorage.setItem('lootlook-theme', newTheme);
   };
 
-  // --- API CALLS ---
+  // --- TREND LOGIC ---
+  const getTrend = (current, previous) => {
+      if (!previous) return 'neutral';
+      if (current < previous) return 'down'; // Good (Price Drop)
+      if (current > previous) return 'up';   // Bad (Price Hike)
+      return 'neutral';
+  };
+
+  const getDiff = (current, previous) => {
+      if (!previous || current === previous) return null;
+      const diff = Math.abs(current - previous);
+      const arrow = current < previous ? '▼' : '▲';
+      return `${arrow} ${diff.toLocaleString()}`;
+  };
+
   const fetchItems = async () => {
     try {
       const res = await fetch(`${API_URL}/items`);
@@ -59,7 +64,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, retention: parseInt(retention) })
       });
-      if (!res.ok) throw new Error("Failed to add");
+      if (!res.ok) throw new Error("Failed");
       setUrl('');
       fetchItems();
     } catch (err) { alert("Error: " + err.message); }
@@ -78,10 +83,7 @@ function App() {
           await fetch(`${API_URL}/items/${editingItem.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                  url: editingItem.url, 
-                  retention: parseInt(editingItem.retention_days) 
-              })
+              body: JSON.stringify({ url: editingItem.url, retention: parseInt(editingItem.retention_days) })
           });
           setEditingItem(null);
           fetchItems();
@@ -92,10 +94,7 @@ function App() {
     setRefreshing(true);
     try {
         const res = await fetch(`${API_URL}/refresh/${id}`, { method: 'POST' });
-        if(res.ok) {
-            fetchItems();
-            if(selectedItem) openHistory(selectedItem); // Reload graph if open
-        }
+        if(res.ok) { fetchItems(); if(selectedItem) openHistory(selectedItem); }
     } catch(err) { alert("Network error"); }
     setRefreshing(false);
   };
@@ -112,26 +111,19 @@ function App() {
     } catch (err) { console.error(err); }
   };
 
-  // --- FILTERING ---
   const uniqueDomains = ['ALL', ...new Set(items.map(i => getDomain(i.url)))];
-  const filteredItems = filterDomain === 'ALL' 
-      ? items 
-      : items.filter(i => getDomain(i.url) === filterDomain);
+  const filteredItems = filterDomain === 'ALL' ? items : items.filter(i => getDomain(i.url) === filterDomain);
 
   return (
     <div className={`app-container ${theme}`}>
-      {/* HEADER & CONTROLS */}
       <header className="header">
         <div className="brand">
-            <img src="/logo.svg" alt="Logo" className="logo-icon" style={{height:'40px', width:'40px'}} />
+            <img src="/logo.svg" alt="Logo" className="logo-icon" style={{height:'40px', width:'40px', marginRight:'15px'}} />
             <h1>LootLook</h1>
         </div>
-        <button className="theme-toggle" onClick={toggleTheme}>
-            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
-        </button>
+        <button className="theme-toggle" onClick={toggleTheme}>{theme === 'dark' ? '☀️ Light' : '🌙 Dark'}</button>
       </header>
 
-      {/* ADD SECTION */}
       <div className="add-container">
         <form onSubmit={handleAdd} className="add-form">
             <input type="url" placeholder="Paste product link here..." value={url} onChange={(e) => setUrl(e.target.value)} required className="url-input" />
@@ -146,7 +138,6 @@ function App() {
         </form>
       </div>
 
-      {/* TOOLBAR */}
       <div className="toolbar">
           <div className="filters">
               <label>Filter:</label>
@@ -160,38 +151,40 @@ function App() {
           </div>
       </div>
 
-      {/* MAIN GRID/LIST */}
       <div className={`items-container ${viewMode}`}>
-        {filteredItems.map(item => (
-          <div key={item.id} className="item-card">
-            <div className="card-top" onClick={() => openHistory(item)}>
-                <div className="card-image" style={{backgroundImage: `url(${item.image_url})`}}>
-                   <div className="history-badge">History</div>
-                </div>
-                <div className="card-info">
-                  <h3>{item.name}</h3>
-                  <div className="price-row">
-                    <span className="price">{item.currency}{item.current_price}</span>
-                  </div>
-                  <span className="domain-tag">{getDomain(item.url)}</span>
-                </div>
-            </div>
+        {filteredItems.map(item => {
+            const trend = getTrend(item.current_price, item.previous_price);
+            const diff = getDiff(item.current_price, item.previous_price);
             
-            {/* THE 2x2 ACTION GRID */}
-            <div className="action-grid">
-                <button className="btn-action check" onClick={() => handleRefresh(item.id)} disabled={refreshing}>
-                   {refreshing ? '...' : 'Check'}
-                </button>
-                <a href={item.url} target="_blank" rel="noreferrer" className="btn-action visit">Visit</a>
-                <button className="btn-action edit" onClick={() => setEditingItem(item)}>Edit</button>
-                <button className="btn-action remove" onClick={() => handleDelete(item.id)}>Remove</button>
-            </div>
-          </div>
-        ))}
+            return (
+              <div key={item.id} className={`item-card trend-${trend}`}>
+                <div className="card-top" onClick={() => openHistory(item)}>
+                    <div className="card-image" style={{backgroundImage: `url(${item.image_url})`}}>
+                       <div className="history-badge">History</div>
+                    </div>
+                    <div className="card-info">
+                      <h3>{item.name}</h3>
+                      <div className="price-row">
+                        <span className="price">{item.currency}{item.current_price.toLocaleString()}</span>
+                        {/* Trend Badge */}
+                        {diff && <span className={`trend-badge ${trend}`}>{diff}</span>}
+                      </div>
+                      <span className="domain-tag">{getDomain(item.url)}</span>
+                    </div>
+                </div>
+                
+                <div className="action-grid">
+                    <button className="btn-action check" onClick={() => handleRefresh(item.id)} disabled={refreshing}>{refreshing ? '...' : 'Check'}</button>
+                    <a href={item.url} target="_blank" rel="noreferrer" className="btn-action visit">Visit</a>
+                    <button className="btn-action edit" onClick={() => setEditingItem(item)}>Edit</button>
+                    <button className="btn-action remove" onClick={() => handleDelete(item.id)}>Remove</button>
+                </div>
+              </div>
+            );
+        })}
         {items.length === 0 && !loading && <div className="empty-state">No loot tracked yet. Add a link!</div>}
       </div>
 
-      {/* HISTORY MODAL */}
       {selectedItem && (
         <div className="modal-overlay" onClick={() => setSelectedItem(null)}>
           <div className="modal-content chart-modal" onClick={e => e.stopPropagation()}>
@@ -213,31 +206,16 @@ function App() {
         </div>
       )}
 
-      {/* EDIT MODAL */}
       {editingItem && (
         <div className="modal-overlay" onClick={() => setEditingItem(null)}>
           <div className="modal-content edit-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Edit Item</h2>
-              <button className="close-icon" onClick={() => setEditingItem(null)}>×</button>
-            </div>
+            <div className="modal-header"><h2>Edit Item</h2><button className="close-icon" onClick={() => setEditingItem(null)}>×</button></div>
             <form onSubmit={handleUpdate}>
                 <label>Tracking URL</label>
-                <input 
-                    className="full-input" 
-                    value={editingItem.url} 
-                    onChange={e => setEditingItem({...editingItem, url: e.target.value})} 
-                />
+                <input className="full-input" value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} />
                 <label>Retention (Days)</label>
-                <select 
-                    className="full-select"
-                    value={editingItem.retention_days}
-                    onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}
-                >
-                    <option value="30">30 Days</option>
-                    <option value="90">90 Days</option>
-                    <option value="365">1 Year</option>
-                    <option value="9999">Indefinite (Forever)</option>
+                <select className="full-select" value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}>
+                    <option value="30">30 Days</option><option value="90">90 Days</option><option value="365">1 Year</option><option value="9999">Forever</option>
                 </select>
                 <button type="submit" className="save-btn">Save Changes</button>
             </form>
