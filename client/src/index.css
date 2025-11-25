@@ -97,7 +97,7 @@ body {
     .items-container.grid .card-image { height: 120px; }
     .items-container.grid h3 { font-size: 0.9rem; -webkit-line-clamp: 1; line-clamp: 1; }
     .items-container.grid .price { font-size: 1.2rem; }
-    .items-container.grid .action-grid { grid-template-columns: 1fr; } /* Stack buttons or keep grid? Let's keep grid but smaller text */
+    .items-container.grid .action-grid { grid-template-columns: 1fr; } 
     .items-container.grid .btn-action { font-size: 0.7rem; padding: 5px; }
 }
 
@@ -130,7 +130,7 @@ h3 { margin: 0 0 5px 0; font-size: 1rem; color: var(--text-main); display: -webk
 .action-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1px; /* Gap creates the border lines if we want */
+    gap: 1px; /* Gap creates the border lines */
     border-top: 1px solid var(--border);
     background: var(--border); /* Lines color */
 }
