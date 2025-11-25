@@ -13,6 +13,7 @@
   --btn-visit: #8b5cf6;
   --btn-edit: #f59e0b;
   --btn-remove: #ef4444;
+  --input-bg: #020617; /* Darker bg for inputs */
 }
 
 /* COLORFUL / LIGHT Theme Overrides */
@@ -25,11 +26,11 @@
   --border: #e2e8f0;
   --accent-green: #16a34a;
   --danger: #dc2626;
-  /* Brighter buttons */
   --btn-check: #38bdf8;
   --btn-visit: #a78bfa;
   --btn-edit: #fbbf24;
   --btn-remove: #f87171;
+  --input-bg: #f8fafc;
 }
 
 body {
@@ -55,7 +56,8 @@ body {
   padding: 20px 0;
   margin-bottom: 20px;
 }
-.brand { display: flex; align-items: center; gap: 10px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo-icon { height: 40px; width: 40px; object-fit: contain; }
 .theme-toggle { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); padding: 8px 15px; border-radius: 20px; cursor: pointer; }
 
 .toolbar {
@@ -72,82 +74,112 @@ body {
 .view-toggles button { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 5px 10px; }
 .view-toggles button.active { color: var(--primary); font-weight: bold; background: var(--bg-dark); border-radius: 4px; }
 
-/* ADD FORM */
+/* ADD FORM (UPDATED) */
 .add-container { margin-bottom: 20px; }
-.add-form { display: flex; gap: 10px; background: var(--bg-card); padding: 10px; border-radius: 8px; border: 1px solid var(--border); }
-.url-input { flex: 1; background: transparent; border: none; color: var(--text-main); outline: none; }
-.controls { display: flex; gap: 5px; }
-.retention-select, .track-btn { border-radius: 4px; border: none; padding: 10px; cursor: pointer; }
-.retention-select { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); }
-.track-btn { background: var(--primary); color: white; font-weight: bold; }
+.add-form { display: flex; gap: 10px; background: var(--bg-card); padding: 15px; border-radius: 12px; border: 1px solid var(--border); flex-wrap: wrap; }
 
-/* --- GRID VIEW (DEFAULT) --- */
+/* NEW INPUT STYLE: Distinct Box */
+.url-input { 
+    flex: 1; 
+    background: var(--input-bg); 
+    border: 1px solid var(--border); 
+    color: var(--text-main); 
+    padding: 12px 15px; 
+    font-size: 1rem; 
+    outline: none; 
+    border-radius: 6px; 
+    min-width: 250px;
+    transition: border-color 0.2s;
+}
+.url-input:focus { border-color: var(--primary); }
+
+.controls { display: flex; gap: 10px; flex-shrink: 0; }
+.retention-select, .track-btn { border-radius: 6px; border: none; padding: 12px 20px; cursor: pointer; font-weight: 600; }
+.retention-select { background: var(--input-bg); color: var(--text-main); border: 1px solid var(--border); }
+.track-btn { background: var(--primary); color: white; }
+
+/* --- GRID VIEW (TILES) --- */
 .items-container.grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 20px;
 }
-/* MOBILE DOUBLE COLUMN OVERRIDE */
-@media (max-width: 600px) {
-    .items-container.grid {
-        grid-template-columns: 1fr 1fr; /* Force 2 columns */
-        gap: 10px;
-    }
-    /* Make cards simpler on mobile */
-    .items-container.grid .card-image { height: 120px; }
-    .items-container.grid h3 { font-size: 0.9rem; -webkit-line-clamp: 1; line-clamp: 1; }
-    .items-container.grid .price { font-size: 1.2rem; }
-    .items-container.grid .action-grid { grid-template-columns: 1fr; } 
-    .items-container.grid .btn-action { font-size: 0.7rem; padding: 5px; }
+.items-container.grid .action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 2x2 Grid */
+    gap: 1px;
+    border-top: 1px solid var(--border);
+    background: var(--border); 
 }
 
-/* --- LIST VIEW --- */
+/* --- LIST VIEW (COMPACT) --- */
 .items-container.list { display: flex; flex-direction: column; gap: 10px; }
-.items-container.list .item-card { display: flex; flex-direction: row; align-items: center; height: auto; padding: 10px; }
-.items-container.list .card-top { display: flex; flex: 1; gap: 15px; align-items: center; }
-.items-container.list .card-image { width: 60px; height: 60px; border-radius: 4px; margin-bottom: 0; }
-.items-container.list .card-info { flex: 1; }
-.items-container.list .action-grid { display: flex; width: auto; gap: 5px; margin-top: 0; border-top: none; }
-.items-container.list .btn-action { width: auto; padding: 5px 15px; }
-
-/* CARD STYLES */
-.item-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    transition: transform 0.2s;
+.items-container.list .item-card { 
+    display: flex; 
+    flex-direction: row; 
+    align-items: center; 
+    height: auto; 
+    padding: 8px; 
+    justify-content: space-between;
 }
+.items-container.list .card-top { 
+    display: flex; 
+    flex: 1; 
+    gap: 15px; 
+    align-items: center; 
+    min-width: 0; /* Allows truncation to work */
+}
+.items-container.list .card-image { width: 50px; height: 50px; border-radius: 4px; margin-bottom: 0; flex-shrink: 0; }
+.items-container.list .card-info { flex: 1; min-width: 0; padding: 0; }
+
+/* 1-Line Title in List View */
+.items-container.list h3 { 
+    margin: 0; 
+    font-size: 0.95rem; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    display: block; /* Overrides the line-clamp from grid view */
+}
+
+.items-container.list .price-row { margin: 0; }
+.items-container.list .price { font-size: 1.1rem; }
+.items-container.list .domain-tag { display: none; } /* Hide tag to save space */
+
+/* 2x2 Buttons in List View (Fixed Width) */
+.items-container.list .action-grid { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 2px;
+    width: 140px; /* Fixed width prevents pushing off screen */
+    margin-left: 10px;
+    border-top: none;
+    background: transparent;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+.items-container.list .btn-action { 
+    padding: 6px 4px; 
+    font-size: 0.75rem; 
+    border-radius: 4px;
+    border: 1px solid var(--border);
+}
+
+/* COMMON CARD STYLES */
+.item-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: transform 0.2s; }
 .card-top { cursor: pointer; }
 .card-image { height: 180px; background-size: cover; background-position: center; position: relative; }
 .history-badge { position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.6); color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; }
 .card-info { padding: 10px; }
+
+/* 2-Line Title in Grid View */
 h3 { margin: 0 0 5px 0; font-size: 1rem; color: var(--text-main); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
 .price { font-size: 1.4rem; font-weight: bold; color: var(--accent-green); }
 .domain-tag { font-size: 0.7rem; background: var(--bg-dark); padding: 2px 6px; border-radius: 4px; color: var(--text-muted); margin-left: 10px; }
 
-/* 2x2 ACTION GRID */
-.action-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1px; /* Gap creates the border lines */
-    border-top: 1px solid var(--border);
-    background: var(--border); /* Lines color */
-}
-.btn-action {
-    background: var(--bg-card);
-    border: none;
-    padding: 10px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-main);
-    text-align: center;
-    text-decoration: none;
-    transition: background 0.2s;
-}
-.btn-action:hover { filter: brightness(0.9); }
-/* Specific button colors (text or subtle bg) */
+/* BUTTONS */
+.btn-action { background: var(--bg-card); border: none; padding: 10px; cursor: pointer; font-size: 0.8rem; font-weight: 600; color: var(--text-main); text-align: center; text-decoration: none; transition: background 0.2s; }
+.btn-action:hover { filter: brightness(0.9); background: var(--bg-dark); }
 .btn-action.check { color: var(--btn-check); }
 .btn-action.visit { color: var(--btn-visit); }
 .btn-action.edit { color: var(--btn-edit); }
@@ -160,11 +192,19 @@ h3 { margin: 0 0 5px 0; font-size: 1rem; color: var(--text-main); display: -webk
 .close-icon { background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; }
 
 /* EDIT FORM */
-.full-input, .full-select { width: 100%; padding: 10px; margin: 5px 0 15px 0; background: var(--bg-dark); border: 1px solid var(--border); color: var(--text-main); border-radius: 4px; box-sizing: border-box; }
+.full-input, .full-select { width: 100%; padding: 10px; margin: 5px 0 15px 0; background: var(--input-bg); border: 1px solid var(--border); color: var(--text-main); border-radius: 4px; box-sizing: border-box; }
 .save-btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
 
+/* MOBILE ADJUSTMENTS */
 @media (max-width: 600px) {
     .add-form { flex-direction: column; }
     .controls { width: 100%; }
     .retention-select, .track-btn { flex: 1; }
+    
+    /* Grid View Mobile */
+    .items-container.grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .items-container.grid .card-image { height: 120px; }
+    .items-container.grid h3 { font-size: 0.85rem; -webkit-line-clamp: 2; line-clamp: 2; height: 2.6em; }
+    .items-container.grid .price { font-size: 1.1rem; }
+    .items-container.grid .btn-action { font-size: 0.7rem; padding: 8px 2px; }
 }
