@@ -21,36 +21,45 @@ app.get('/api/items', (req, res) => {
     });
 });
 
-// 2. ADD NEW ITEM (FIXED: Now saves currency)
+// 2. ADD NEW ITEM
 app.post('/api/items', async (req, res) => {
     const { url, retention } = req.body;
     const data = await scrapeProduct(url);
     if (!data) return res.status(500).json({ error: "Could not scrape link" });
 
-    // UPDATED SQL: Added 'currency' column
     const sql = `INSERT INTO items (url, name, image_url, current_price, currency, retention_days, last_checked) VALUES (?, ?, ?, ?, ?, ?, ?)`;
     const params = [
         url, 
         data.title, 
         data.image, 
         data.price, 
-        data.currency || '$', // Save the detected currency
+        data.currency || '$', 
         retention || 30, 
         new Date().toISOString()
     ];
 
     db.run(sql, params, function(err) {
         if (err) return res.status(400).json({ error: err.message });
-        
-        // Save initial price history
         db.run(`INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)`, 
             [this.lastID, data.price, new Date().toISOString()]);
-            
         res.json({ message: "Item added", id: this.lastID, ...data });
     });
 });
 
-// 3. DELETE ITEM
+// 3. EDIT ITEM (NEW)
+app.put('/api/items/:id', (req, res) => {
+    const { url, retention } = req.body;
+    // We allow updating the URL (fixing links) and Retention policy
+    db.run("UPDATE items SET url = ?, retention_days = ? WHERE id = ?", 
+        [url, retention, req.params.id], 
+        (err) => {
+            if (err) return res.status(400).json({ error: err.message });
+            res.json({ message: "Updated successfully" });
+        }
+    );
+});
+
+// 4. DELETE ITEM
 app.delete('/api/items/:id', (req, res) => {
     db.run("DELETE FROM items WHERE id = ?", req.params.id, (err) => {
         if (err) return res.status(400).json({ error: err.message });
@@ -58,7 +67,7 @@ app.delete('/api/items/:id', (req, res) => {
     });
 });
 
-// 4. PRICE HISTORY
+// 5. PRICE HISTORY
 app.get('/api/history/:id', (req, res) => {
     db.all("SELECT * FROM prices WHERE item_id = ? ORDER BY date ASC", [req.params.id], (err, rows) => {
         if (err) return res.status(400).json({ error: err.message });
@@ -66,7 +75,7 @@ app.get('/api/history/:id', (req, res) => {
     });
 });
 
-// 5. FORCE REFRESH (FIXED: Now updates currency if it changes)
+// 6. FORCE REFRESH
 app.post('/api/refresh/:id', (req, res) => {
     const id = req.params.id;
     db.get("SELECT * FROM items WHERE id = ?", [id], async (err, item) => {
@@ -74,7 +83,6 @@ app.post('/api/refresh/:id', (req, res) => {
 
         const freshData = await scrapeProduct(item.url);
         if (freshData) {
-            // UPDATED SQL: Now updates currency too
             db.run("UPDATE items SET current_price = ?, currency = ?, last_checked = ? WHERE id = ?", 
                 [freshData.price, freshData.currency || '$', new Date().toISOString(), id]);
                 
@@ -97,10 +105,8 @@ cron.schedule('0 */6 * * *', () => {
         for (const item of rows) {
             const freshData = await scrapeProduct(item.url);
             if (freshData && freshData.price !== item.current_price) {
-                // Update price AND currency automatically
                 db.run("UPDATE items SET current_price = ?, currency = ?, last_checked = ? WHERE id = ?", 
                     [freshData.price, freshData.currency || '$', new Date().toISOString(), item.id]);
-                    
                 db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", 
                     [item.id, freshData.price, new Date().toISOString()]);
             }
@@ -120,9 +126,7 @@ cron.schedule('0 0 * * *', () => {
     });
 });
 
-// --- SERVE REACT FRONTEND ---
 app.use(express.static(path.join(__dirname, '../client/dist')));
-
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });

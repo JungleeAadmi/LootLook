@@ -5,20 +5,46 @@ import './index.css';
 const API_URL = '/api';
 
 function App() {
+  // --- STATE ---
   const [items, setItems] = useState([]);
   const [url, setUrl] = useState('');
   const [retention, setRetention] = useState(30);
   const [loading, setLoading] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
+  
+  // UI States
+  const [theme, setTheme] = useState(localStorage.getItem('lootlook-theme') || 'dark');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [filterDomain, setFilterDomain] = useState('ALL');
+  
+  // Modals
+  const [selectedItem, setSelectedItem] = useState(null); // For History/Graph
+  const [editingItem, setEditingItem] = useState(null);   // For Edit Modal
   const [history, setHistory] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => { 
+      fetchItems(); 
+      document.body.className = theme; // Apply theme to body
+  }, [theme]);
 
+  // --- HELPERS ---
+  const getDomain = (url) => {
+      try {
+          const hostname = new URL(url).hostname;
+          return hostname.replace('www.', '');
+      } catch (e) { return 'unknown'; }
+  };
+
+  const toggleTheme = () => {
+      const newTheme = theme === 'dark' ? 'colorful' : 'dark';
+      setTheme(newTheme);
+      localStorage.setItem('lootlook-theme', newTheme);
+  };
+
+  // --- API CALLS ---
   const fetchItems = async () => {
     try {
       const res = await fetch(`${API_URL}/items`);
-      if (!res.ok) throw new Error("Server error");
       const json = await res.json();
       setItems(json.data);
     } catch (err) { console.error("Fetch failed:", err); }
@@ -27,40 +53,39 @@ function App() {
   const handleAdd = async (e) => {
     e.preventDefault();
     setLoading(true);
-
-    const timeout = setTimeout(() => {
-        setLoading(false);
-        alert("Server took too long. Check logs.");
-    }, 60000);
-
     try {
       const res = await fetch(`${API_URL}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, retention: parseInt(retention) })
       });
-      
-      clearTimeout(timeout);
-      
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to add");
-      }
-      
+      if (!res.ok) throw new Error("Failed to add");
       setUrl('');
       fetchItems();
-    } catch (err) { 
-      clearTimeout(timeout);
-      alert("Error: " + err.message); 
-    }
+    } catch (err) { alert("Error: " + err.message); }
     setLoading(false);
   };
 
-  const handleDelete = async (e, id) => {
-    e.stopPropagation();
+  const handleDelete = async (id) => {
     if(!confirm("Stop tracking this item?")) return;
     await fetch(`${API_URL}/items/${id}`, { method: 'DELETE' });
     fetchItems();
+  };
+
+  const handleUpdate = async (e) => {
+      e.preventDefault();
+      try {
+          await fetch(`${API_URL}/items/${editingItem.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                  url: editingItem.url, 
+                  retention: parseInt(editingItem.retention_days) 
+              })
+          });
+          setEditingItem(null);
+          fetchItems();
+      } catch (err) { alert("Update failed"); }
   };
 
   const handleRefresh = async (id) => {
@@ -68,10 +93,8 @@ function App() {
     try {
         const res = await fetch(`${API_URL}/refresh/${id}`, { method: 'POST' });
         if(res.ok) {
-            if(selectedItem) openHistory(selectedItem);
             fetchItems();
-        } else {
-            alert("Refresh failed.");
+            if(selectedItem) openHistory(selectedItem); // Reload graph if open
         }
     } catch(err) { alert("Network error"); }
     setRefreshing(false);
@@ -82,107 +105,142 @@ function App() {
     try {
       const res = await fetch(`${API_URL}/history/${item.id}`);
       const json = await res.json();
-      const formatted = json.data.map(p => ({
+      setHistory(json.data.map(p => ({
         date: new Date(p.date).toLocaleDateString(undefined, {month:'short', day:'numeric'}),
         price: p.price
-      }));
-      setHistory(formatted);
+      })));
     } catch (err) { console.error(err); }
   };
 
+  // --- FILTERING ---
+  const uniqueDomains = ['ALL', ...new Set(items.map(i => getDomain(i.url)))];
+  const filteredItems = filterDomain === 'ALL' 
+      ? items 
+      : items.filter(i => getDomain(i.url) === filterDomain);
+
   return (
-    <div className="app-container">
-      {/* HEADER SECTION */}
+    <div className={`app-container ${theme}`}>
+      {/* HEADER & CONTROLS */}
       <header className="header">
         <div className="brand">
-            {/* FIXED: Inline styles force the size, ignoring cache issues */}
-            <img 
-                src="/logo.svg" 
-                alt="Logo" 
-                className="logo-icon" 
-                style={{ height: '50px', width: '50px', marginRight: '15px' }} 
-            />
+            <img src="/logo.svg" alt="Logo" className="logo-icon" style={{height:'40px', width:'40px'}} />
             <h1>LootLook</h1>
         </div>
+        <button className="theme-toggle" onClick={toggleTheme}>
+            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+        </button>
       </header>
 
-      {/* SEARCH/ADD SECTION */}
+      {/* ADD SECTION */}
       <div className="add-container">
         <form onSubmit={handleAdd} className="add-form">
-            <input 
-              type="url" 
-              placeholder="Paste product link here..." 
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              required
-              className="url-input"
-            />
+            <input type="url" placeholder="Paste product link here..." value={url} onChange={(e) => setUrl(e.target.value)} required className="url-input" />
             <div className="controls">
-                <select 
-                    value={retention} 
-                    onChange={(e) => setRetention(e.target.value)}
-                    className="retention-select"
-                >
-                    <option value="30">Keep 30 Days</option>
-                    <option value="90">Keep 90 Days</option>
-                    <option value="365">Keep 1 Year</option>
+                <select value={retention} onChange={(e) => setRetention(e.target.value)} className="retention-select">
+                    <option value="30">30 Days</option>
+                    <option value="90">90 Days</option>
+                    <option value="365">1 Year</option>
                 </select>
-                <button type="submit" disabled={loading} className="track-btn">
-                    {loading ? 'Scanning...' : 'Track Price'}
-                </button>
+                <button type="submit" disabled={loading} className="track-btn">{loading ? '...' : 'Track'}</button>
             </div>
         </form>
       </div>
 
-      {/* ITEMS GRID */}
-      <div className="items-grid">
-        {items.map(item => (
-          <div key={item.id} className="item-card" onClick={() => openHistory(item)}>
-            <div className="card-image" style={{backgroundImage: `url(${item.image_url})`}}>
-               <div className="history-badge">Click for History</div>
+      {/* TOOLBAR */}
+      <div className="toolbar">
+          <div className="filters">
+              <label>Filter:</label>
+              <select onChange={(e) => setFilterDomain(e.target.value)} value={filterDomain}>
+                  {uniqueDomains.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+          </div>
+          <div className="view-toggles">
+              <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')}>Tiles</button>
+              <button className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')}>List</button>
+          </div>
+      </div>
+
+      {/* MAIN GRID/LIST */}
+      <div className={`items-container ${viewMode}`}>
+        {filteredItems.map(item => (
+          <div key={item.id} className="item-card">
+            <div className="card-top" onClick={() => openHistory(item)}>
+                <div className="card-image" style={{backgroundImage: `url(${item.image_url})`}}>
+                   <div className="history-badge">History</div>
+                </div>
+                <div className="card-info">
+                  <h3>{item.name}</h3>
+                  <div className="price-row">
+                    <span className="price">{item.currency}{item.current_price}</span>
+                  </div>
+                  <span className="domain-tag">{getDomain(item.url)}</span>
+                </div>
             </div>
-            <div className="card-details">
-              <h3>{item.name}</h3>
-              <div className="price-row">
-                {/* Shows currency correctly */}
-                <span className="price">{item.currency}{item.current_price}</span>
-                <span className="date">Checked: {new Date(item.last_checked).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-              </div>
-              <button className="delete-btn" onClick={(e) => handleDelete(e, item.id)}>Remove</button>
+            
+            {/* THE 2x2 ACTION GRID */}
+            <div className="action-grid">
+                <button className="btn-action check" onClick={() => handleRefresh(item.id)} disabled={refreshing}>
+                   {refreshing ? '...' : 'Check'}
+                </button>
+                <a href={item.url} target="_blank" rel="noreferrer" className="btn-action visit">Visit</a>
+                <button className="btn-action edit" onClick={() => setEditingItem(item)}>Edit</button>
+                <button className="btn-action remove" onClick={() => handleDelete(item.id)}>Remove</button>
             </div>
           </div>
         ))}
-        {items.length === 0 && !loading && <div className="empty-state">No loot tracked yet. Add a link above!</div>}
+        {items.length === 0 && !loading && <div className="empty-state">No loot tracked yet. Add a link!</div>}
       </div>
 
       {/* HISTORY MODAL */}
       {selectedItem && (
         <div className="modal-overlay" onClick={() => setSelectedItem(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div className="modal-content chart-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Price History</h2>
               <button className="close-icon" onClick={() => setSelectedItem(null)}>×</button>
             </div>
             <div className="chart-wrapper">
-              {history.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={history}>
-                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} />
-                    <YAxis stroke="#94a3b8" />
-                    <Tooltip contentStyle={{backgroundColor: '#1e293b', border: 'none', color: '#fff'}} />
-                    <Line type="monotone" dataKey="price" stroke="#38bdf8" strokeWidth={3} dot={{r: 4}} />
+                    <XAxis dataKey="date" stroke="var(--text-muted)" fontSize={12} />
+                    <YAxis stroke="var(--text-muted)" />
+                    <Tooltip contentStyle={{backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-main)'}} />
+                    <Line type="monotone" dataKey="price" stroke="var(--primary)" strokeWidth={3} dot={{r: 4}} />
                   </LineChart>
                 </ResponsiveContainer>
-              ) : <p className="no-data">Collecting data...</p>}
             </div>
-            <div className="modal-actions">
-                <button onClick={() => handleRefresh(selectedItem.id)} disabled={refreshing} className="refresh-btn">
-                    {refreshing ? 'Updating...' : 'Check Price Now'}
-                </button>
-                <a href={selectedItem.url} target="_blank" rel="noreferrer" className="visit-btn">
-                    Visit Store
-                </a>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT MODAL */}
+      {editingItem && (
+        <div className="modal-overlay" onClick={() => setEditingItem(null)}>
+          <div className="modal-content edit-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Item</h2>
+              <button className="close-icon" onClick={() => setEditingItem(null)}>×</button>
             </div>
+            <form onSubmit={handleUpdate}>
+                <label>Tracking URL</label>
+                <input 
+                    className="full-input" 
+                    value={editingItem.url} 
+                    onChange={e => setEditingItem({...editingItem, url: e.target.value})} 
+                />
+                <label>Retention (Days)</label>
+                <select 
+                    className="full-select"
+                    value={editingItem.retention_days}
+                    onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}
+                >
+                    <option value="30">30 Days</option>
+                    <option value="90">90 Days</option>
+                    <option value="365">1 Year</option>
+                    <option value="9999">Indefinite (Forever)</option>
+                </select>
+                <button type="submit" className="save-btn">Save Changes</button>
+            </form>
           </div>
         </div>
       )}
