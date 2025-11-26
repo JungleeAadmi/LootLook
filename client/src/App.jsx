@@ -17,7 +17,7 @@ function App() {
   const [history, setHistory] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [globalSync, setGlobalSync] = useState(false);
-  const [checkingAll, setCheckingAll] = useState(false); // New state for Check All
+  const [checkingAll, setCheckingAll] = useState(false); 
 
   useEffect(() => { 
       fetchItems(); 
@@ -92,17 +92,14 @@ function App() {
     setRefreshing(false);
   };
 
-  // --- NEW: CHECK ALL FUNCTION ---
   const handleCheckAll = async () => {
       if (checkingAll) return;
       if (!confirm(`Are you sure you want to check prices for all ${items.length} items? This might take a while.`)) return;
       
       setCheckingAll(true);
       
-      // Process sequentially to avoid overwhelming the server/blocking
       for (const item of items) {
           try {
-              // Visual feedback: You could add a temporary 'updating' state to the specific item here if you wanted
               await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST' });
           } catch (e) {
               console.error(`Failed to refresh ${item.name}`, e);
@@ -144,20 +141,26 @@ function App() {
             <h1>LootLook</h1>
         </div>
         <div className="header-actions">
-            {/* CHECK ALL BUTTON */}
+            {/* CHECK ALL BUTTON (UPDATED TEXT) */}
             <button 
-                className={`sync-btn ${checkingAll ? 'spinning' : ''}`} 
+                className={`sync-btn text-btn ${checkingAll ? 'spinning' : ''}`} 
                 onClick={handleCheckAll} 
                 title="Check All Prices"
-                style={{marginRight: '5px'}} // Small spacing
+                style={{marginRight: '5px', width: 'auto', padding: '0 15px', borderRadius: '6px'}} 
             >
-                ⚡
+                Check All
             </button>
 
-            {/* SYNC BUTTON */}
-            <button className={`sync-btn ${globalSync ? 'spinning' : ''}`} onClick={fetchItems} title="Sync Data">
-                ↻
+            {/* SYNC BUTTON (UPDATED TEXT) */}
+            <button 
+                className={`sync-btn text-btn ${globalSync ? 'spinning' : ''}`} 
+                onClick={fetchItems} 
+                title="Sync Data"
+                style={{width: 'auto', padding: '0 15px', borderRadius: '6px'}}
+            >
+                Sync
             </button>
+            
             <button className="theme-toggle" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
         </div>
       </header>
@@ -238,7 +241,8 @@ function App() {
                 <label>Tracking URL</label>
                 <div className="input-with-copy">
                     <input className="full-input" value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} />
-                    <button type="button" className="copy-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link">📋</button>
+                    {/* NEW: Copy Button with Text */}
+                    <button type="button" className="copy-btn text-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link" style={{fontSize: '0.9rem', fontWeight: '600'}}>Copy</button>
                 </div>
                 <label>Retention</label><select className="full-select" value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}><option value="30">30 Days</option><option value="365">1 Year</option></select>
                 <button type="submit" className="save-btn">Save Changes</button>
