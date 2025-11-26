@@ -1,5 +1,8 @@
 /* --- THEME VARIABLES --- */
 :root {
+  /* Force browser form controls (like select arrows) to match the dark theme */
+  color-scheme: dark; 
+
   --font-main: 'Nunito', sans-serif;
   --bg-dark: #0f172a;
   --bg-card: #1e293b;
@@ -23,6 +26,9 @@
 }
 
 .colorful {
+  /* Force light controls for light theme */
+  color-scheme: light;
+
   --bg-dark: #f8fafc;
   --bg-card: #ffffff;
   --primary: #0284c7;
@@ -50,8 +56,8 @@ body {
 }
 
 .app-container {
-  max-width: 95%; /* WIDER for Desktop */
-  width: 1600px; /* Max cap */
+  max-width: 95%; 
+  width: 1600px;
   margin: 0 auto;
   padding: 20px;
   min-height: 100vh;
@@ -90,12 +96,20 @@ h1 {
 @keyframes spin { 100% { transform: rotate(360deg); } }
 .spinning { animation: spin 1s linear infinite; color: var(--primary); border-color: var(--primary); }
 
+.icon-btn.text-btn {
+  width: auto;
+  padding: 0 15px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: var(--font-main);
+}
+
 /* --- UNIFORM CONTAINERS (Add & Toolbar) --- */
 .add-container, .toolbar {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 15px; /* Uniform padding */
+  padding: 15px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.05);
   margin-bottom: 20px;
 }
@@ -104,12 +118,14 @@ h1 {
 .toolbar { display: flex; justify-content: space-between; align-items: center; }
 
 /* --- UNIFORM INPUTS & BUTTONS --- */
+/* STRICT SIZING: Force all inputs, selects, and buttons to look exactly the same size */
 .url-input, .retention-select, .track-btn, .filters select {
   height: 48px;
   padding: 0 15px;
   border-radius: 8px;
   font-family: var(--font-main);
-  font-size: 1rem;
+  font-size: 0.95rem !important; /* Force uniform font size */
+  line-height: 1.2; /* Normalize line height */
   box-sizing: border-box;
   border: 1px solid var(--input-border);
 }
@@ -146,7 +162,14 @@ h1 {
 
 /* Filters & Toggles */
 .filters { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--text-muted); }
-.filters select { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); height: 38px; }
+/* Override specific height for filter to match others if desired, or keep slightly smaller */
+.filters select { 
+    background: var(--bg-dark); 
+    color: var(--text-main); 
+    border: 1px solid var(--border); 
+    height: 42px; /* Slightly smaller than main inputs, but uniform font */
+    font-size: 0.9rem !important;
+}
 
 .view-toggles button {
   background: none; border: none; color: var(--text-muted); cursor: pointer;
@@ -296,8 +319,7 @@ h1 {
   .url-input { width: 100%; }
   /* Equal width controls on mobile */
   .controls { width: 100%; display: flex; gap: 10px; }
-  .retention-select { flex: 1; width: 50%; }
-  .track-btn { flex: 1; width: 50%; }
+  .retention-select, .track-btn { flex: 1; width: 50%; }
 
   /* Grid View Mobile */
   .items-container.grid { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -305,11 +327,21 @@ h1 {
   .items-container.grid h3 { font-size: 0.85rem; height: 2.6em; }
   .items-container.grid .price { font-size: 1.1rem; }
   .items-container.grid .btn-action { font-size: 0.7rem; min-height: 35px; }
-  .items-container.grid .domain-tag { display: none; }
+  
+  /* FIX: FORCE DOMAIN TAG VISIBILITY ON MOBILE */
+  .items-container.grid .domain-tag { 
+      display: block; /* Show it! */
+      font-size: 0.65rem; 
+      white-space: nowrap; 
+      overflow: hidden; 
+      text-overflow: ellipsis;
+      max-width: 100px; /* Prevent breaking layout */
+      margin-top: 5px;
+  }
 
   /* List View Mobile */
   .items-container.list .item-card { font-size: 0.9rem; }
   .items-container.list h3 { font-size: 0.9rem; }
-  .items-container.list .action-grid { width: 110px; } /* Smaller buttons on mobile list */
+  .items-container.list .action-grid { width: 110px; } 
   .items-container.list .btn-action { font-size: 0.7rem; }
 }
