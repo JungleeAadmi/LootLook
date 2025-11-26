@@ -1,8 +1,5 @@
 /* --- THEME VARIABLES --- */
 :root {
-  /* Force browser form controls (like select arrows) to match the dark theme */
-  color-scheme: dark; 
-
   --font-main: 'Nunito', sans-serif;
   --bg-dark: #0f172a;
   --bg-card: #1e293b;
@@ -23,12 +20,12 @@
   --trend-down-bg: rgba(74, 222, 128, 0.05);
   --trend-up-border: #f87171;
   --trend-up-bg: rgba(248, 113, 113, 0.05);
+  
+  /* Custom Arrow for Dark Mode (White) */
+  --arrow-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23f1f5f9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
 .colorful {
-  /* Force light controls for light theme */
-  color-scheme: light;
-
   --bg-dark: #f8fafc;
   --bg-card: #ffffff;
   --primary: #0284c7;
@@ -44,6 +41,9 @@
   --btn-remove: #f87171;
   --input-bg: #f1f5f9;
   --input-border: #cbd5e1;
+  
+  /* Custom Arrow for Light Mode (Black) */
+  --arrow-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
 body {
@@ -82,7 +82,6 @@ h1 {
 }
 .header-actions { display: flex; gap: 10px; align-items: center; }
 
-/* Header Buttons */
 .icon-btn {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -93,18 +92,12 @@ h1 {
   cursor: pointer; transition: all 0.2s ease; font-size: 1.2rem;
 }
 .icon-btn:hover { background: var(--bg-dark); color: var(--primary); border-color: var(--primary); transform: translateY(-2px); }
+.icon-btn.text-btn { width: auto; padding: 0 15px; font-size: 0.9rem; font-weight: 700; font-family: var(--font-main); }
+
 @keyframes spin { 100% { transform: rotate(360deg); } }
 .spinning { animation: spin 1s linear infinite; color: var(--primary); border-color: var(--primary); }
 
-.icon-btn.text-btn {
-  width: auto;
-  padding: 0 15px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  font-family: var(--font-main);
-}
-
-/* --- UNIFORM CONTAINERS (Add & Toolbar) --- */
+/* --- UNIFORM CONTAINERS --- */
 .add-container, .toolbar {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -117,17 +110,33 @@ h1 {
 .add-form { display: flex; gap: 10px; flex-wrap: wrap; }
 .toolbar { display: flex; justify-content: space-between; align-items: center; }
 
-/* --- UNIFORM INPUTS & BUTTONS --- */
-/* STRICT SIZING: Force all inputs, selects, and buttons to look exactly the same size */
+/* --- THE MAGIC FIX FOR FONTS & ARROWS --- */
 .url-input, .retention-select, .track-btn, .filters select {
   height: 48px;
   padding: 0 15px;
   border-radius: 8px;
   font-family: var(--font-main);
-  font-size: 0.95rem !important; /* Force uniform font size */
-  line-height: 1.2; /* Normalize line height */
+  /* Force 16px to stop Mobile Zoom & mismatch */
+  font-size: 16px !important; 
+  line-height: normal;
   box-sizing: border-box;
   border: 1px solid var(--input-border);
+  -webkit-appearance: none; /* Kill Apple Styles */
+  appearance: none;
+}
+
+/* CUSTOM DROPDOWNS */
+.retention-select, .filters select {
+  background: var(--input-bg);
+  color: var(--text-main);
+  cursor: pointer;
+  font-weight: 600;
+  /* Add the Custom Arrow */
+  background-image: var(--arrow-icon);
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 35px; /* Make room for arrow */
 }
 
 .url-input {
@@ -140,15 +149,6 @@ h1 {
 }
 .url-input:focus { border-color: var(--primary); }
 
-.controls { display: flex; gap: 10px; flex-shrink: 0; }
-
-.retention-select {
-  background: var(--input-bg);
-  color: var(--text-main);
-  cursor: pointer;
-  font-weight: 600;
-}
-
 .track-btn {
   background: linear-gradient(135deg, var(--primary), var(--secondary));
   color: #fff;
@@ -156,24 +156,16 @@ h1 {
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 4px 10px rgba(56, 189, 248, 0.3);
-  transition: transform 0.2s;
 }
-.track-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
 
-/* Filters & Toggles */
+.controls { display: flex; gap: 10px; flex-shrink: 0; }
 .filters { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--text-muted); }
-/* Override specific height for filter to match others if desired, or keep slightly smaller */
-.filters select { 
-    background: var(--bg-dark); 
-    color: var(--text-main); 
-    border: 1px solid var(--border); 
-    height: 42px; /* Slightly smaller than main inputs, but uniform font */
-    font-size: 0.9rem !important;
-}
+/* Override specific filter style to match main inputs */
+.filters select { background: var(--bg-dark); height: 42px; border-color: var(--border); }
 
 .view-toggles button {
   background: none; border: none; color: var(--text-muted); cursor: pointer;
-  padding: 6px 12px; font-family: var(--font-main); font-weight: 600; transition: color 0.2s;
+  padding: 6px 12px; font-family: var(--font-main); font-weight: 600;
 }
 .view-toggles button.active {
   color: var(--primary); background: var(--bg-dark); border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
@@ -191,20 +183,15 @@ h1 {
   border: 1px solid var(--border);
   border-radius: 16px;
   overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
-  display: flex;
-  flex-direction: column;
+  transition: transform 0.2s;
+  display: flex; flex-direction: column;
 }
 .item-card.trend-down { border-color: var(--trend-down-border); }
 .item-card.trend-up { border-color: var(--trend-up-border); }
 
-/* Grid View Internals */
 .items-container.grid .card-image {
   height: 180px;
-  background-size: cover;
-  background-position: center;
-  position: relative;
-  background-color: #000;
+  background-size: cover; background-position: center; position: relative; background-color: #000;
 }
 .items-container.grid .history-badge {
   position: absolute; top: 8px; right: 8px;
@@ -221,73 +208,25 @@ h1 {
   background: var(--border); border-top: 1px solid var(--border);
 }
 
-/* --- LIST VIEW (NO IMAGE) --- */
+/* --- LIST VIEW --- */
 .items-container.list { display: flex; flex-direction: column; gap: 10px; }
-
-.items-container.list .item-card {
-  flex-direction: row;
-  padding: 0;
-  align-items: stretch;
-}
-
-.items-container.list .card-top {
-  flex: 1;
-  padding: 10px 15px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0; /* Prevents text overflow */
-}
-
-.items-container.list h3 {
-  margin: 0 0 4px 0;
-  font-size: 1rem;
-  white-space: nowrap; 
-  overflow: hidden; 
-  text-overflow: ellipsis;
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
+.items-container.list .item-card { flexDirection: row; padding: 0; align-items: stretch; }
+.items-container.list .card-top { flex: 1; padding: 10px 15px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.items-container.list h3 { margin: 0 0 4px 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 .items-container.list .price-row { margin: 0; display: flex; align-items: center; gap: 10px; }
 .items-container.list .price { font-size: 1.1rem; margin: 0; }
 .items-container.list .meta-row { margin-top: 4px; }
+.items-container.list .action-grid { width: 140px; flex-shrink: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border-left: 1px solid var(--border); border-top: none; }
 
-/* 2x2 Button Grid for List View */
-.items-container.list .action-grid {
-  width: 140px;
-  flex-shrink: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1px;
-  background: var(--border);
-  border-left: 1px solid var(--border);
-  border-top: none;
-}
-
-/* Common Text Styles */
+/* Common Styles */
 .price { font-size: 1.4rem; font-weight: 800; color: var(--accent-green); }
 .meta-row { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); }
 .domain-tag { background: var(--bg-dark); padding: 3px 8px; border-radius: 4px; font-weight: 600; }
 
-/* BUTTONS */
 .btn-action {
-  background: var(--bg-card);
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 700;
-  font-family: var(--font-main);
-  color: var(--text-main);
-  transition: background 0.2s;
-  /* Center Text Perfectly */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: 40px;
+  background: var(--bg-card); border: none; padding: 0; cursor: pointer;
+  font-size: 0.8rem; font-weight: 700; font-family: var(--font-main); color: var(--text-main);
+  display: flex; align-items: center; justify-content: center; height: 100%; min-height: 40px;
 }
 .btn-action:hover { background: var(--bg-dark); filter: brightness(0.95); }
 .btn-action.check { color: var(--btn-check); }
@@ -300,13 +239,12 @@ h1 {
 .modal-content { background: var(--bg-card); border-radius: 20px; padding: 25px; width: 90%; max-width: 500px; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
 .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; color: var(--text-main); }
 .modal-header h2 { margin: 0; font-size: 1.4rem; }
-.close-icon { background: none; border: none; font-size: 1.8rem; color: var(--text-muted); cursor: pointer; line-height: 1; }
+.close-icon { background: none; border: none; font-size: 1.8rem; color: var(--text-muted); cursor: pointer; }
 
-/* Edit Form */
-.full-input, .full-select { width: 100%; padding: 12px; margin: 5px 0 15px 0; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-main); border-radius: 8px; box-sizing: border-box; font-family: var(--font-main); }
+.full-input, .full-select { width: 100%; padding: 12px; margin: 5px 0 15px 0; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-main); border-radius: 8px; box-sizing: border-box; font-family: var(--font-main); font-size: 16px !important; }
 .input-with-copy { display: flex; gap: 8px; align-items: center; margin-bottom: 15px; }
 .input-with-copy .full-input { margin-bottom: 0; }
-.copy-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); padding: 0 15px; height: 42px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.copy-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); padding: 0 15px; height: 48px; border-radius: 8px; cursor: pointer; font-weight: 600; }
 .save-btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 800; cursor: pointer; margin-top: 10px; }
 
 /* --- MOBILE ADJUSTMENTS --- */
@@ -314,10 +252,8 @@ h1 {
   .header { flex-wrap: wrap; }
   .header-actions { margin-left: auto; }
   
-  /* Stacked Add Form */
   .add-form { flex-direction: column; }
   .url-input { width: 100%; }
-  /* Equal width controls on mobile */
   .controls { width: 100%; display: flex; gap: 10px; }
   .retention-select, .track-btn { flex: 1; width: 50%; }
 
@@ -328,18 +264,19 @@ h1 {
   .items-container.grid .price { font-size: 1.1rem; }
   .items-container.grid .btn-action { font-size: 0.7rem; min-height: 35px; }
   
-  /* FIX: FORCE DOMAIN TAG VISIBILITY ON MOBILE */
+  /* FORCE VISIBILITY FOR WEBSITE NAME ON MOBILE */
   .items-container.grid .domain-tag { 
-      display: block; /* Show it! */
+      display: block; 
       font-size: 0.65rem; 
       white-space: nowrap; 
       overflow: hidden; 
       text-overflow: ellipsis;
-      max-width: 100px; /* Prevent breaking layout */
+      max-width: 100%; 
       margin-top: 5px;
+      position: relative; 
+      z-index: 1; /* Ensure it sits on top */
   }
 
-  /* List View Mobile */
   .items-container.list .item-card { font-size: 0.9rem; }
   .items-container.list h3 { font-size: 0.9rem; }
   .items-container.list .action-grid { width: 110px; } 
