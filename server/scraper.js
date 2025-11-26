@@ -3,7 +3,7 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
 puppeteer.use(StealthPlugin());
 
-// Helper
+// Helper to wait
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function scrapeProduct(url) {
@@ -11,25 +11,41 @@ async function scrapeProduct(url) {
     try {
         browser = await puppeteer.launch({
             headless: "new",
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--window-size=1920,1080', '--disable-blink-features=AutomationControlled']
+            args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox', 
+                '--disable-dev-shm-usage',
+                '--window-size=1920,1080',
+                '--disable-blink-features=AutomationControlled', // Crucial for Meesho
+                '--disable-features=IsolateOrigins,site-per-process' // Fixes some frame issues
+            ]
         });
 
         const page = await browser.newPage();
         
-        // STEALTH HEADERS
+        // 1. MAX STEALTH HEADERS
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setExtraHTTPHeaders({
             'Accept-Language': 'en-US,en;q=0.9',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
             'Referer': 'https://www.google.com/', 
-            'Upgrade-Insecure-Requests': '1'
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"'
         });
 
         await page.setViewport({ width: 1366, height: 768 });
         
-        // NAVIGATE WITH REDIRECT SUPPORT
-        // Networkidle2 is crucial for "Share" links (amzn.in, dl.flipkart) to finish redirecting
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+        // 2. NAVIGATION (Handle Redirects & Timeouts)
+        try {
+            // Networkidle2 waits for redirects (essential for sharein/dl.flipkart)
+            await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
+        } catch (e) {
+            console.log(`Navigation timeout on ${url}, trying to scrape anyway...`);
+        }
         
-        // AUTO-SCROLL (Fixes Robocraze/Lazy Images)
+        // 3. AGGRESSIVE AUTO-SCROLL (Fixes Robocraze/Savana/TataCliq Lazy Load)
         await page.evaluate(async () => {
             await new Promise((resolve) => {
                 let totalHeight = 0;
@@ -38,7 +54,7 @@ async function scrapeProduct(url) {
                     const scrollHeight = document.body.scrollHeight;
                     window.scrollBy(0, distance);
                     totalHeight += distance;
-                    if(totalHeight >= scrollHeight || totalHeight > 2500){
+                    if(totalHeight >= scrollHeight || totalHeight > 4000){ // Scroll deep
                         clearInterval(timer);
                         resolve();
                     }
@@ -46,15 +62,16 @@ async function scrapeProduct(url) {
             });
         });
         
-        await wait(2000); 
+        await wait(3000); // Wait for React/Vue to hydrate
 
+        // 4. EXTRACTION LOGIC
         const data = await page.evaluate(() => {
             let title = document.title;
             let image = "";
             let price = 0;
             let currency = null;
 
-            // --- STRATEGY 1: JSON-LD ---
+            // --- JSON-LD (Primary Source) ---
             const scripts = document.querySelectorAll('script[type="application/ld+json"]');
             for (let script of scripts) {
                 try {
@@ -72,71 +89,75 @@ async function scrapeProduct(url) {
                 } catch (e) {}
             }
 
-            // --- STRATEGY 2: SPECIFIC SITE SELECTORS ---
+            // --- SITE SPECIFIC FIXES ---
+            
+            // 1. Meesho (Access Denied Fix)
+            // Meesho often puts price in a very specific H4
+            const meeshoPrice = document.querySelector('h4.sc-eDvSVe, .ProductDescription__PriceText-sc-17crh2v-0 h4, h4[color="greyBase"]');
+            if (meeshoPrice) { price = meeshoPrice.innerText; currency = 'INR'; }
+            const meeshoImg = document.querySelector('div[data-testid="product-image"] img, .ProductImage__Image-sc-1199j7s-2');
+            if (meeshoImg) image = meeshoImg.src;
+
+            // 2. TataCliq
+            const tataPrice = document.querySelector('.ProductDescriptionPage__price, .ProductDetailsMainCard__price h3');
+            if (tataPrice) { price = tataPrice.innerText; currency = 'INR'; }
+            const tataImg = document.querySelector('.ProductDetailsMainCard__galleryImage img, .ImageGallery__image img');
+            if (tataImg) image = tataImg.src;
+
+            // 3. Savana
+            const savanaPrice = document.querySelector('.product-price-value');
+            if (savanaPrice) { price = savanaPrice.innerText; currency = 'INR'; }
+            const savanaImg = document.querySelector('.swiper-slide-active img');
+            if (savanaImg) image = savanaImg.src;
+
+            // 4. Quartz / Robocraze (Shopify)
+            const shopifyPrice = document.querySelector('#ProductPrice, .price__current, .product-price, .price-item--regular');
+            if (shopifyPrice) price = shopifyPrice.innerText.trim();
+            const shopifyImg = document.querySelector('.product__media img, .product-gallery__image');
+            if (shopifyImg) image = shopifyImg.src || shopifyImg.srcset?.split(' ')[0];
+
+            // 5. Flipkart
+            const flipkartPrice = document.querySelector('._30jeq3._16Jk6d, ._30jeq3');
+            if (flipkartPrice) { price = flipkartPrice.innerText; currency = 'INR'; }
+            const flipkartImg = document.querySelector('img._396cs4, img.q6DClP');
+            if (flipkartImg) image = flipkartImg.src;
+
+            // --- GENERIC FALLBACKS ---
             if (!price || price === 0) {
-                const selectors = [
-                    // Tata Cliq
-                    '.ProductDescriptionPage__price', '.ProductDetailsMainCard__price',
-                    // Savana
-                    '.product-price-value',
-                    // Quartz / Silverline / Robocraze (Shopify/WooCommerce)
-                    '.price__current', '.product-price', '#ProductPrice', '.price', 
-                    // Meesho
-                    '.ProductDescription__PriceText-sc-17crh2v-0 h4', 'h4',
-                    // Generic
-                    '.pdp-price', '.a-price-whole', '#priceblock_ourprice', 'bdi', '[data-testid="price"]'
-                ];
-                
-                for (let sel of selectors) {
+                const genericSelectors = ['.price', '.pdp-price', '.a-price-whole', '#priceblock_ourprice', 'bdi', '[data-testid="price"]'];
+                for (let sel of genericSelectors) {
                     const el = document.querySelector(sel);
                     if (el && el.innerText.match(/[0-9]/)) {
-                        const txt = el.innerText;
-                        if(txt.length < 40) { // Avoid grabbing description text
-                            price = txt;
-                            if (!currency) {
-                                if (txt.includes('₹') || txt.includes('Rs')) currency = 'INR';
-                                else if (txt.includes('$')) currency = 'USD';
-                            }
-                            break;
-                        }
+                        price = el.innerText;
+                        break;
                     }
                 }
             }
 
-            // --- IMAGE FALLBACKS ---
             if (!image) {
-                const imgSelectors = [
-                    'meta[property="og:image"]',
-                    '.ProductDetailsMainCard__galleryImage', // TataCliq
-                    'div[data-testid="product-image"] img', // Meesho
-                    '.swiper-slide-active img', // Savana
-                    '.product-gallery__image', // Shopify
-                    '#landingImage', // Amazon
-                    '.image-grid-image' // Myntra
-                ];
-                for (let sel of imgSelectors) {
-                    const el = document.querySelector(sel);
-                    if (el) { image = el.src || el.content; if(image) break; }
-                }
+                const metaImg = document.querySelector('meta[property="og:image"]');
+                if (metaImg) image = metaImg.content;
             }
 
             return { title, image, price, currency };
         });
 
-        // DATA CLEANING
+        // --- DATA CLEANING ---
         let finalPrice = 0;
         if (data.price) {
+            // Clean non-numeric chars but keep dots
             finalPrice = parseFloat(data.price.toString().replace(/[^0-9.]/g, ''));
         }
 
-        // FORCE INR for Indian Sites
+        // FORCE INR for Known Indian Domains
         let finalCurrency = data.currency;
-        const currentUrl = page.url(); // Get final URL after redirect
-        if (currentUrl.includes('.in') || currentUrl.includes('flipkart') || currentUrl.includes('meesho') || currentUrl.includes('tatacliq') || currentUrl.includes('robocraze')) {
+        const currentUrl = page.url();
+        if (currentUrl.includes('.in') || currentUrl.includes('flipkart') || currentUrl.includes('meesho') || currentUrl.includes('tatacliq') || currentUrl.includes('robocraze') || currentUrl.includes('savana')) {
             finalCurrency = 'INR';
         } else {
-            const currencyMap = { 'INR': '₹', 'RS': '₹', '₹': '₹', 'USD': '$', '$': '$' };
-            let clean = data.currency ? data.currency.toString().toUpperCase().replace('.', '') : 'USD';
+            // Map codes to symbols
+            const currencyMap = { 'INR': '₹', 'RS': '₹', '₹': '₹', 'USD': '$', '$': '$', 'EUR': '€' };
+            let clean = data.currency ? data.currency.toString().toUpperCase().replace('.', '').trim() : 'USD';
             finalCurrency = currencyMap[clean] || '$';
         }
         if (finalCurrency === 'INR') finalCurrency = '₹';
