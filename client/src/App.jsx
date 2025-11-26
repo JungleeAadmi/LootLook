@@ -127,80 +127,84 @@ function App() {
 
   return (
     <div className={`app-container ${theme}`}>
-      {/* HEADER */}
       <header className="header">
         <div className="brand">
             <img src="/logo.svg" alt="Logo" className="logo-icon" />
             <h1>LootLook</h1>
         </div>
         <div className="header-actions">
-            <button className={`icon-btn ${checkingAll ? 'spinning' : ''}`} onClick={handleCheckAll} title="Check All Prices">⚡</button>
-            <button className={`icon-btn ${globalSync ? 'spinning' : ''}`} onClick={fetchItems} title="Sync Data">↻</button>
-            <button className="icon-btn" onClick={toggleTheme} title="Toggle Theme">{theme === 'dark' ? '☀️' : '🌙'}</button>
+            <button className={`icon-btn ${checkingAll ? 'spinning' : ''}`} onClick={handleCheckAll} title="Check All">⚡</button>
+            <button className={`icon-btn ${globalSync ? 'spinning' : ''}`} onClick={fetchItems} title="Sync">↻</button>
+            <button className="icon-btn" onClick={toggleTheme} title="Theme">{theme === 'dark' ? '☀️' : '🌙'}</button>
         </div>
       </header>
 
-      {/* ADD SECTION */}
-      <div className="controls-wrapper">
-        <div className="add-container">
-            <form onSubmit={handleAdd} className="add-form">
-                <input type="url" placeholder="Paste product link here..." value={url} onChange={(e) => setUrl(e.target.value)} required className="url-input" />
-                <div className="form-actions">
-                    <select value={retention} onChange={(e) => setRetention(e.target.value)} className="retention-select">
-                        <option value="30">30 Days</option><option value="90">90 Days</option><option value="365">1 Year</option>
-                    </select>
-                    <button type="submit" disabled={loading} className="track-btn">{loading ? '...' : 'Track'}</button>
-                </div>
-            </form>
-        </div>
-
-        {/* FILTER & VIEW TOOLBAR */}
-        <div className="toolbar">
-            <div className="filters">
-                <label>Filter:</label>
-                <select onChange={(e) => setFilterDomain(e.target.value)} value={filterDomain}>
-                    {uniqueDomains.map(d => <option key={d} value={d}>{d}</option>)}
+      <div className="add-container">
+        <form onSubmit={handleAdd} className="add-form">
+            <input type="url" placeholder="Paste product link here..." value={url} onChange={(e) => setUrl(e.target.value)} required className="url-input" />
+            <div className="controls">
+                <select value={retention} onChange={(e) => setRetention(e.target.value)} className="retention-select">
+                    <option value="30">30 Days</option><option value="90">90 Days</option><option value="365">1 Year</option>
                 </select>
+                <button type="submit" disabled={loading} className="track-btn">{loading ? '...' : 'Track'}</button>
             </div>
-            <div className="view-toggles">
-                <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')}>Tiles</button>
-                <button className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')}>List</button>
-            </div>
-        </div>
+        </form>
       </div>
 
-      {/* ITEMS CONTAINER */}
+      <div className="toolbar">
+          <div className="filters">
+              <label>Filter:</label>
+              <select onChange={(e) => setFilterDomain(e.target.value)} value={filterDomain}>
+                  {uniqueDomains.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+          </div>
+          <div className="view-toggles">
+              <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')}>Tiles</button>
+              <button className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')}>List</button>
+          </div>
+      </div>
+
       <div className={`items-container ${viewMode}`}>
         {filteredItems.map(item => (
           <div key={item.id} className={`item-card trend-${getTrend(item.current_price, item.previous_price)}`}>
             
-            {/* TOP: CLICKABLE AREA (Graph) */}
-            <div className="card-content" onClick={() => openHistory(item)}>
-                {/* Image: Only in Grid View */}
+            {/* MAIN CONTENT AREA */}
+            <div className="card-main" onClick={() => openHistory(item)}>
+                
+                {/* Row 1: Photo (Only in Grid View) */}
                 {viewMode === 'grid' && (
-                    <div className="card-image" style={{backgroundImage: `url(${item.image_url})`}}>
-                       <div className="history-badge">Graph</div>
+                    <div className="card-row row-photo">
+                        <div className="card-image" style={{backgroundImage: `url(${item.image_url})`}}>
+                           <div className="history-badge">Graph</div>
+                        </div>
                     </div>
                 )}
-                
-                {/* Text Details */}
-                <div className="text-details">
-                  <h3>{item.name}</h3>
-                  <div className="price-block">
+
+                {/* Row 2: Name */}
+                <div className="card-row row-name">
+                    <h3>{item.name}</h3>
+                </div>
+
+                {/* Row 3: Price */}
+                <div className="card-row row-price">
                     <span className="price">{item.currency}{item.current_price.toLocaleString()}</span>
-                  </div>
-                  <div className="meta-block">
-                      <span className="domain-tag">{getDomain(item.url)}</span>
-                      <span className="date-added">
-                          {item.date_added ? `Added: ${new Date(item.date_added).toLocaleDateString(undefined, {day:'numeric', month:'short'})}` : ''}
-                      </span>
-                  </div>
+                </div>
+
+                {/* Row 4: Date Added */}
+                <div className="card-row row-date">
+                    <span className="label">Added: </span>
+                    <span>{item.date_added ? new Date(item.date_added).toLocaleDateString(undefined, {day:'numeric', month:'short'}) : 'N/A'}</span>
+                </div>
+
+                {/* Row 5: Website Name */}
+                <div className="card-row row-website">
+                    <span className="domain-tag">{getDomain(item.url)}</span>
                 </div>
             </div>
             
-            {/* BOTTOM/RIGHT: ACTIONS (2x2 Grid) */}
+            {/* Row 6: Action Grid (2x2) */}
             <div className="action-grid">
-                <button className="btn-action check" onClick={() => handleRefresh(item.id)} disabled={refreshing}>{refreshing ? '...' : 'Check'}</button>
+                <button className="btn-action check" onClick={() => handleRefresh(item.id)} disabled={refreshing}>Check</button>
                 <a href={item.url} target="_blank" rel="noreferrer" className="btn-action visit">Visit</a>
                 <button className="btn-action edit" onClick={() => setEditingItem(item)}>Edit</button>
                 <button className="btn-action remove" onClick={() => handleDelete(item.id)}>Remove</button>
