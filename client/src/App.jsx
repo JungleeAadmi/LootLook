@@ -92,6 +92,15 @@ function App() {
     setRefreshing(false);
   };
 
+  // Function to copy URL to clipboard
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      alert("Link copied to clipboard!");
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+    });
+  };
+
   const openHistory = async (item) => {
     setSelectedItem(item);
     try {
@@ -162,10 +171,11 @@ function App() {
                     <span className="price">{item.currency}{item.current_price.toLocaleString()}</span>
                   </div>
                   <div className="meta-row">
+                      {/* Updated: Show Domain clearly */}
                       <span className="domain-tag">{getDomain(item.url)}</span>
-                      {/* ADDED ON DATE */}
+                      {/* Updated: Show date below or next to domain, smaller */}
                       <span className="date-added">
-                          {item.date_added ? `Added: ${new Date(item.date_added).toLocaleDateString(undefined, {day:'numeric', month:'short'})}` : ''}
+                          {item.date_added ? `${new Date(item.date_added).toLocaleDateString(undefined, {day:'numeric', month:'short'})}` : ''}
                       </span>
                   </div>
                 </div>
@@ -199,7 +209,12 @@ function App() {
           <div className="modal-content edit-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header"><h2>Edit Item</h2><button className="close-icon" onClick={() => setEditingItem(null)}>×</button></div>
             <form onSubmit={handleUpdate}>
-                <label>Tracking URL</label><input className="full-input" value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} />
+                <label>Tracking URL</label>
+                <div className="input-with-copy">
+                    <input className="full-input" value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} />
+                    {/* NEW: Copy Button */}
+                    <button type="button" className="copy-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link">📋</button>
+                </div>
                 <label>Retention</label><select className="full-select" value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}><option value="30">30 Days</option><option value="365">1 Year</option></select>
                 <button type="submit" className="save-btn">Save Changes</button>
             </form>
