@@ -17,21 +17,44 @@ async function scrapeProduct(url) {
                 '--disable-dev-shm-usage',
                 '--window-size=1920,1080',
                 '--disable-blink-features=AutomationControlled',
-                '--disable-features=IsolateOrigins,site-per-process'
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--lang=en-US,en'
             ]
         });
 
         const page = await browser.newPage();
         
-        // 1. BYPASS CSP (Helps with TataCliq scripts loading)
-        await page.setBypassCSP(true);
+        // 1. NUCLEAR STEALTH: Mock Timezone & Delete Webdriver
+        await page.emulateTimezone('Asia/Kolkata');
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => false });
+            window.navigator.chrome = { runtime: {} };
+        });
 
-        // 2. STEALTH HEADERS
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        // 2. RESOURCE BLOCKING (Speed up TataCliq & bypass image-based tracking)
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            const type = req.resourceType();
+            const blockedTypes = ['font', 'stylesheet']; // Allow images for other sites, block heavy stuff
+            // For TataCliq, block images too to force script priority
+            if (url.includes('tatacliq') && (type === 'image' || type === 'media')) {
+                req.abort();
+            } else if (blockedTypes.includes(type)) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+
+        // 3. REALISTIC HEADERS
+        await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setExtraHTTPHeaders({
             'Accept-Language': 'en-US,en;q=0.9',
             'Referer': 'https://www.google.com/',
-            'Upgrade-Insecure-Requests': '1'
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"macOS"'
         });
 
         await page.setViewport({ width: 1366, height: 768 });
@@ -46,21 +69,19 @@ async function scrapeProduct(url) {
                 console.log(`Attempt ${attempts} for ${url}...`);
                 
                 if (attempts > 1) {
-                    console.log("Clearing cookies for retry...");
                     const client = await page.target().createCDPSession();
                     await client.send('Network.clearBrowserCookies');
-                    await client.send('Network.clearBrowserCache');
                 }
 
                 // NAVIGATE
                 await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-                // --- SITE SPECIFIC WAITS (Crucial for TataCliq) ---
+                // WAIT FOR DATA (Specific to TataCliq)
                 if (url.includes('tatacliq')) {
                     try {
-                        // Wait specifically for the price tag to appear
-                        await page.waitForSelector('.ProductDescriptionPage__price', { timeout: 15000 });
-                    } catch(e) { console.log("TataCliq selector wait timed out"); }
+                        // Wait for the spinner to disappear or price to appear
+                        await page.waitForSelector('.ProductDescriptionPage__price', { timeout: 10000 });
+                    } catch(e) {}
                 }
 
                 // AUTO-SCROLL
@@ -72,15 +93,14 @@ async function scrapeProduct(url) {
                             const scrollHeight = document.body.scrollHeight;
                             window.scrollBy(0, distance);
                             totalHeight += distance;
-                            if(totalHeight >= scrollHeight || totalHeight > 2000){
+                            if(totalHeight >= scrollHeight || totalHeight > 3000){
                                 clearInterval(timer);
                                 resolve();
                             }
                         }, 100);
                     });
                 });
-                
-                await wait(3000);
+                await wait(2000);
 
                 // EXTRACTION
                 finalData = await page.evaluate(() => {
@@ -124,13 +144,10 @@ async function scrapeProduct(url) {
                     // VISUAL SELECTORS
                     if (!price || price === 0) {
                         const selectors = [
-                            // Tata Cliq
-                            '.ProductDescriptionPage__price', '.ProductDetailsMainCard__price h3',
-                            // Flipkart
-                            'div._30jeq3._16Jk6d', 'div._30jeq3', '.CEmiEU ._30jeq3',
-                            // Savana/Others
-                            '.product-price-value', '#ProductPrice', '.price-item--regular', '.price__current',
-                            'h4[color="greyBase"]', '.ProductDescription__PriceText-sc-17crh2v-0 h4',
+                            '.ProductDescriptionPage__price', '.ProductDetailsMainCard__price h3', // Tata
+                            'div._30jeq3._16Jk6d', 'div._30jeq3', // Flipkart
+                            '.product-price-value', '#ProductPrice', '.price-item--regular', '.price__current', // Savana/Shopify
+                            'h4[color="greyBase"]', '.ProductDescription__PriceText-sc-17crh2v-0 h4', // Meesho
                             '.a-price-whole', '.price', '.money', 'bdi'
                         ];
                         
@@ -161,20 +178,18 @@ async function scrapeProduct(url) {
                     return { title, image, price, currency };
                 });
 
-                // Clean Price
+                // Success Check
                 if (finalData.price) {
                     let p = parseFloat(finalData.price.toString().replace(/[^0-9.]/g, ''));
                     if (!isNaN(p) && p > 0) {
                         finalData.price = p;
-                        break; // Success
+                        break; 
                     }
                 }
-            } catch (e) {
-                console.log("Error during attempt:", e.message);
-            }
+            } catch (e) { console.log("Attempt failed:", e.message); }
         }
 
-        // DEBUGGING SNAPSHOT
+        // DEBUG
         if (!finalData.price || finalData.price === 0) {
             try {
                 const debugPath = path.resolve(__dirname, '../client/dist/debug.png');
