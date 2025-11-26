@@ -74,13 +74,14 @@ async function scrapeProduct(url) {
                 }
 
                 // NAVIGATE
-                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                // Wait longer for redirects (Flipkart/Savana shared links)
+                await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
 
                 // WAIT FOR DATA (Specific to TataCliq)
                 if (url.includes('tatacliq')) {
                     try {
                         // Wait for the spinner to disappear or price to appear
-                        await page.waitForSelector('.ProductDescriptionPage__price', { timeout: 10000 });
+                        await page.waitForSelector('.ProductDescriptionPage__price', { timeout: 15000 });
                     } catch(e) {}
                 }
 
@@ -148,6 +149,7 @@ async function scrapeProduct(url) {
                             'div._30jeq3._16Jk6d', 'div._30jeq3', // Flipkart
                             '.product-price-value', '#ProductPrice', '.price-item--regular', '.price__current', // Savana/Shopify
                             'h4[color="greyBase"]', '.ProductDescription__PriceText-sc-17crh2v-0 h4', // Meesho
+                            '.PdpInfo__Price', '.ProductPrice', // Apollo Pharmacy
                             '.a-price-whole', '.price', '.money', 'bdi'
                         ];
                         
@@ -168,7 +170,7 @@ async function scrapeProduct(url) {
                     }
 
                     if (!image) {
-                        const imgSelectors = ['.ProductDetailsMainCard__galleryImage img', 'img._396cs4', '.product__media img', '.swiper-slide-active img', '#landingImage'];
+                        const imgSelectors = ['.ProductDetailsMainCard__galleryImage img', 'img._396cs4', '.product__media img', '.swiper-slide-active img', '#landingImage', '.ProductImage__Image'];
                         for (let sel of imgSelectors) {
                             const el = document.querySelector(sel);
                             if (el) { image = el.src || el.content; if(image) break; }
@@ -200,7 +202,7 @@ async function scrapeProduct(url) {
         // FORCE INR
         let finalCurrency = finalData.currency;
         const currentUrl = page.url().toLowerCase();
-        const indianSites = ['.in', 'flipkart', 'meesho', 'tatacliq', 'myntra', 'ajio', 'quartzcomponents', 'robocraze', 'savana', 'silverline'];
+        const indianSites = ['.in', 'flipkart', 'meesho', 'tatacliq', 'myntra', 'ajio', 'quartzcomponents', 'robocraze', 'savana', 'silverline', 'apollopharmacy'];
 
         if (indianSites.some(site => currentUrl.includes(site))) {
             finalCurrency = 'INR';

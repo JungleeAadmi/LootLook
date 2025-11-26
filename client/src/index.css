@@ -1,3 +1,4 @@
+/* ... [Keep theme variables and basic setup] ... */
 /* --- THEME VARIABLES --- */
 :root {
   /* Default DARK Theme */
@@ -155,7 +156,15 @@ h1 { font-size: 1.8rem; font-weight: 800; color: var(--primary); margin: 0; lett
     align-items: center; 
     min-width: 0; 
 }
-.items-container.list .card-image { width: 50px; height: 50px; border-radius: 4px; margin-bottom: 0; flex-shrink: 0; }
+.items-container.list .card-image { 
+    width: 50px; 
+    height: 50px; 
+    border-radius: 4px; 
+    margin-bottom: 0; 
+    flex-shrink: 0;
+    background-size: cover !important; /* Force cover to prevent massive icons */
+    background-position: center !important;
+}
 .items-container.list .card-info { flex: 1; min-width: 0; padding: 0; }
 
 /* 1-Line Title in List View */
