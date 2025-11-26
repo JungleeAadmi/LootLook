@@ -17,12 +17,12 @@ function App() {
   const [history, setHistory] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [globalSync, setGlobalSync] = useState(false);
+  const [checkingAll, setCheckingAll] = useState(false); // New state for Check All
 
   useEffect(() => { 
       fetchItems(); 
       document.body.className = theme; 
       
-      // Auto-sync on focus (Laptop <-> Phone sync)
       const onFocus = () => fetchItems();
       window.addEventListener('focus', onFocus);
       return () => window.removeEventListener('focus', onFocus);
@@ -92,13 +92,32 @@ function App() {
     setRefreshing(false);
   };
 
-  // Function to copy URL to clipboard
+  // --- NEW: CHECK ALL FUNCTION ---
+  const handleCheckAll = async () => {
+      if (checkingAll) return;
+      if (!confirm(`Are you sure you want to check prices for all ${items.length} items? This might take a while.`)) return;
+      
+      setCheckingAll(true);
+      
+      // Process sequentially to avoid overwhelming the server/blocking
+      for (const item of items) {
+          try {
+              // Visual feedback: You could add a temporary 'updating' state to the specific item here if you wanted
+              await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST' });
+          } catch (e) {
+              console.error(`Failed to refresh ${item.name}`, e);
+          }
+      }
+      
+      await fetchItems();
+      setCheckingAll(false);
+      alert("All checks complete!");
+  };
+
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
-      alert("Link copied to clipboard!");
-    }).catch(err => {
-      console.error('Failed to copy: ', err);
-    });
+      alert("Link copied!");
+    }).catch(err => console.error('Failed to copy: ', err));
   };
 
   const openHistory = async (item) => {
@@ -125,6 +144,16 @@ function App() {
             <h1>LootLook</h1>
         </div>
         <div className="header-actions">
+            {/* CHECK ALL BUTTON */}
+            <button 
+                className={`sync-btn ${checkingAll ? 'spinning' : ''}`} 
+                onClick={handleCheckAll} 
+                title="Check All Prices"
+                style={{marginRight: '5px'}} // Small spacing
+            >
+                ⚡
+            </button>
+
             {/* SYNC BUTTON */}
             <button className={`sync-btn ${globalSync ? 'spinning' : ''}`} onClick={fetchItems} title="Sync Data">
                 ↻
@@ -171,11 +200,9 @@ function App() {
                     <span className="price">{item.currency}{item.current_price.toLocaleString()}</span>
                   </div>
                   <div className="meta-row">
-                      {/* Updated: Show Domain clearly */}
                       <span className="domain-tag">{getDomain(item.url)}</span>
-                      {/* Updated: Show date below or next to domain, smaller */}
                       <span className="date-added">
-                          {item.date_added ? `${new Date(item.date_added).toLocaleDateString(undefined, {day:'numeric', month:'short'})}` : ''}
+                          {item.date_added ? `Added: ${new Date(item.date_added).toLocaleDateString(undefined, {day:'numeric', month:'short'})}` : ''}
                       </span>
                   </div>
                 </div>
@@ -191,7 +218,6 @@ function App() {
         {items.length === 0 && !loading && <div className="empty-state">No loot tracked yet. Add a link!</div>}
       </div>
 
-      {/* Keep Modals (History/Edit) same as before - omitted for brevity but they are required */}
       {selectedItem && (
         <div className="modal-overlay" onClick={() => setSelectedItem(null)}>
           <div className="modal-content chart-modal" onClick={e => e.stopPropagation()}>
@@ -212,7 +238,6 @@ function App() {
                 <label>Tracking URL</label>
                 <div className="input-with-copy">
                     <input className="full-input" value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} />
-                    {/* NEW: Copy Button */}
                     <button type="button" className="copy-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link">📋</button>
                 </div>
                 <label>Retention</label><select className="full-select" value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}><option value="30">30 Days</option><option value="365">1 Year</option></select>
