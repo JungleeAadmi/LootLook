@@ -1,6 +1,6 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-const path = require('path'); // Added for saving screenshots
+const path = require('path'); 
 
 puppeteer.use(StealthPlugin());
 
@@ -22,7 +22,7 @@ async function scrapeProduct(url) {
 
         const page = await browser.newPage();
         
-        // 1. STEALTH HEADERS
+        // STEALTH HEADERS
         await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setExtraHTTPHeaders({
             'Accept-Language': 'en-US,en;q=0.9',
@@ -31,132 +31,128 @@ async function scrapeProduct(url) {
         });
 
         await page.setViewport({ width: 1366, height: 768 });
-        
-        // 2. NAVIGATION
-        try {
-            // Increased timeout to 90s for slow redirects
-            await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
-        } catch (e) {
-            console.log(`Navigation timeout on ${url}, attempting scrape anyway...`);
-        }
-        
-        // 3. AUTO-SCROLL
-        await page.evaluate(async () => {
-            await new Promise((resolve) => {
-                let totalHeight = 0;
-                const distance = 150;
-                const timer = setInterval(() => {
-                    const scrollHeight = document.body.scrollHeight;
-                    window.scrollBy(0, distance);
-                    totalHeight += distance;
-                    if(totalHeight >= scrollHeight || totalHeight > 3000){
-                        clearInterval(timer);
-                        resolve();
-                    }
-                }, 100);
-            });
-        });
-        
-        await wait(3000);
 
-        // 4. EXTRACTION
-        const data = await page.evaluate(() => {
-            let title = document.title;
-            let image = "";
-            let price = 0;
-            let currency = null;
+        let attempts = 0;
+        let finalData = { title: 'Unknown', image: '', price: 0, currency: '$' };
 
-            // META TAGS
-            const metaPrice = document.querySelector('meta[property="product:price:amount"]')?.content ||
-                              document.querySelector('meta[property="og:price:amount"]')?.content;
-            if (metaPrice) price = metaPrice;
-
-            const metaCurrency = document.querySelector('meta[property="product:price:currency"]')?.content ||
-                                 document.querySelector('meta[property="og:price:currency"]')?.content;
-            if (metaCurrency) currency = metaCurrency;
-
-            const metaImage = document.querySelector('meta[property="og:image"]')?.content;
-            if (metaImage) image = metaImage;
-
-            // JSON-LD
-            if (!price || price === 0) {
-                const scripts = document.querySelectorAll('script[type="application/ld+json"]');
-                for (let script of scripts) {
-                    try {
-                        const json = JSON.parse(script.innerText);
-                        const product = Array.isArray(json) ? json.find(i => i['@type'] === 'Product') : json;
-                        if (product) {
-                            if (product.name) title = product.name;
-                            if (!image && product.image) image = Array.isArray(product.image) ? product.image[0] : product.image;
-                            
-                            const offer = Array.isArray(product.offers) ? product.offers[0] : product.offers;
-                            if (offer) {
-                                if (offer.price) price = offer.price;
-                                if (offer.priceCurrency) currency = offer.priceCurrency;
-                            }
-                        }
-                    } catch (e) {}
-                }
-            }
-
-            // VISUAL SELECTORS
-            if (!price || price === 0) {
-                const selectors = [
-                    '#ProductPrice', '.price-item--regular', '.price__current', '.product-price',
-                    '.product-price-value', '.pdp-price',
-                    '.ProductDescriptionPage__price', '.ProductDetailsMainCard__price h3',
-                    'h4[color="greyBase"]', '.ProductDescription__PriceText-sc-17crh2v-0 h4',
-                    '._30jeq3', '.a-price-whole', '.price', '.money', 'bdi', 'h4'
-                ];
+        // --- RETRY LOOP (The "Double Tap" Fix) ---
+        while (attempts < 2) {
+            attempts++;
+            try {
+                console.log(`Attempt ${attempts} for ${url}...`);
                 
-                for (let sel of selectors) {
-                    const el = document.querySelector(sel);
-                    if (el && el.innerText.match(/[0-9]/)) {
-                        const txt = el.innerText;
-                        if(txt.length < 30) {
-                            price = txt;
-                            if (!currency) {
-                                if (txt.includes('₹') || txt.includes('Rs')) currency = 'INR';
-                                else if (txt.includes('$')) currency = 'USD';
+                // 1. NAVIGATE
+                if (attempts === 1) {
+                    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+                } else {
+                    console.log("Price not found. Reloading page...");
+                    await page.reload({ waitUntil: 'networkidle2' });
+                }
+
+                // 2. AUTO-SCROLL
+                await page.evaluate(async () => {
+                    await new Promise((resolve) => {
+                        let totalHeight = 0;
+                        const distance = 150;
+                        const timer = setInterval(() => {
+                            const scrollHeight = document.body.scrollHeight;
+                            window.scrollBy(0, distance);
+                            totalHeight += distance;
+                            if(totalHeight >= scrollHeight || totalHeight > 3000){
+                                clearInterval(timer);
+                                resolve();
                             }
-                            break;
+                        }, 100);
+                    });
+                });
+                await wait(2000);
+
+                // 3. EXTRACTION
+                finalData = await page.evaluate(() => {
+                    let title = document.title;
+                    let image = "";
+                    let price = 0;
+                    let currency = null;
+
+                    // META TAGS
+                    const metaPrice = document.querySelector('meta[property="product:price:amount"]')?.content ||
+                                      document.querySelector('meta[property="og:price:amount"]')?.content;
+                    if (metaPrice) price = metaPrice;
+
+                    const metaCurrency = document.querySelector('meta[property="product:price:currency"]')?.content ||
+                                         document.querySelector('meta[property="og:price:currency"]')?.content;
+                    if (metaCurrency) currency = metaCurrency;
+
+                    const metaImage = document.querySelector('meta[property="og:image"]')?.content;
+                    if (metaImage) image = metaImage;
+
+                    // VISUAL SELECTORS (Updated for Flipkart)
+                    if (!price || price === 0) {
+                        const selectors = [
+                            // Flipkart Specific
+                            'div._30jeq3._16Jk6d', 'div._30jeq3', '.CEmiEU ._30jeq3',
+                            // Tata / Savana / Others
+                            '.ProductDescriptionPage__price', '.product-price-value', 
+                            '#ProductPrice', '.price-item--regular', '.price__current',
+                            'h4[color="greyBase"]', '.ProductDescription__PriceText-sc-17crh2v-0 h4',
+                            '.a-price-whole', '.price', '.money', 'bdi'
+                        ];
+                        
+                        for (let sel of selectors) {
+                            const el = document.querySelector(sel);
+                            if (el && el.innerText.match(/[0-9]/)) {
+                                const txt = el.innerText;
+                                if(txt.length < 30) {
+                                    price = txt;
+                                    if (!currency) {
+                                        if (txt.includes('₹')) currency = 'INR';
+                                        else if (txt.includes('$')) currency = 'USD';
+                                    }
+                                    break;
+                                }
+                            }
                         }
                     }
+
+                    if (!image) {
+                        const imgSelectors = ['img._396cs4', '.product__media img', '.swiper-slide-active img', '#landingImage'];
+                        for (let sel of imgSelectors) {
+                            const el = document.querySelector(sel);
+                            if (el) { image = el.src || el.content; if(image) break; }
+                        }
+                    }
+
+                    return { title, image, price, currency };
+                });
+
+                // Clean Price
+                if (finalData.price) {
+                    let p = parseFloat(finalData.price.toString().replace(/[^0-9.]/g, ''));
+                    if (!isNaN(p) && p > 0) {
+                        finalData.price = p;
+                        break; // SUCCESS! Exit retry loop
+                    }
                 }
+                
+                // If price is still 0, loop will retry
+                
+            } catch (e) {
+                console.log("Error during attempt:", e.message);
             }
-
-            if (!image) {
-                const imgSelectors = ['.product__media img', '.swiper-slide-active img', '.ProductDetailsMainCard__galleryImage img', 'img._396cs4', '#landingImage'];
-                for (let sel of imgSelectors) {
-                    const el = document.querySelector(sel);
-                    if (el) { image = el.src || el.content; if(image) break; }
-                }
-            }
-
-            return { title, image, price, currency };
-        });
-
-        // POST PROCESSING
-        let finalPrice = 0;
-        if (data.price) {
-            finalPrice = parseFloat(data.price.toString().replace(/[^0-9.]/g, ''));
         }
 
-        // --- THE SPY CAMERA (DEBUGGING) ---
-        // If price is 0, take a photo so we know WHY
-        if (finalPrice === 0) {
+        // --- DEBUGGING ---
+        if (!finalData.price || finalData.price === 0) {
             try {
                 const domain = new URL(url).hostname.replace('www.', '');
                 const debugPath = path.resolve(__dirname, '../client/dist/debug.png');
                 await page.screenshot({ path: debugPath, fullPage: false });
-                console.log(`📸 Debug screenshot saved to ${debugPath} for ${domain}`);
-            } catch (e) {
-                console.error("Failed to take debug screenshot:", e.message);
-            }
+                console.log(`📸 Debug screenshot saved to ${debugPath}`);
+            } catch (e) {}
         }
 
-        // CURRENCY FORCING
-        let finalCurrency = data.currency;
+        // FORCE INR
+        let finalCurrency = finalData.currency;
         const currentUrl = page.url().toLowerCase();
         const indianSites = ['.in', 'flipkart', 'meesho', 'tatacliq', 'myntra', 'ajio', 'quartzcomponents', 'robocraze', 'savana', 'silverline'];
 
@@ -164,15 +160,15 @@ async function scrapeProduct(url) {
             finalCurrency = 'INR';
         } else {
             const currencyMap = { 'INR': '₹', 'RS': '₹', '₹': '₹', 'USD': '$', '$': '$', 'EUR': '€' };
-            let clean = data.currency ? data.currency.toString().toUpperCase().replace('.', '').trim() : 'USD';
+            let clean = finalData.currency ? finalData.currency.toString().toUpperCase().replace('.', '').trim() : 'USD';
             finalCurrency = currencyMap[clean] || '$';
         }
         if (finalCurrency === 'INR') finalCurrency = '₹';
 
         return {
-            title: data.title ? data.title.substring(0, 100) : 'Unknown Product',
-            image: data.image || '',
-            price: finalPrice || 0,
+            title: finalData.title ? finalData.title.substring(0, 100) : 'Unknown Product',
+            image: finalData.image || '',
+            price: finalData.price || 0,
             currency: finalCurrency
         };
 
