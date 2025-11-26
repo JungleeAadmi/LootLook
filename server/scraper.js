@@ -16,7 +16,7 @@ async function scrapeProduct(url) {
                 '--disable-setuid-sandbox', 
                 '--disable-dev-shm-usage',
                 '--window-size=1920,1080',
-                '--disable-blink-features=AutomationControlled',
+                '--disable-blink-features=AutomationControlled', // Essential for TataCliq/Meesho
                 '--disable-features=IsolateOrigins,site-per-process',
                 '--lang=en-US,en'
             ]
@@ -24,37 +24,31 @@ async function scrapeProduct(url) {
 
         const page = await browser.newPage();
         
-        // 1. NUCLEAR STEALTH: Mock Timezone & Delete Webdriver
+        // 1. STEALTH CONFIGURATION
         await page.emulateTimezone('Asia/Kolkata');
         await page.evaluateOnNewDocument(() => {
             Object.defineProperty(navigator, 'webdriver', { get: () => false });
             window.navigator.chrome = { runtime: {} };
         });
 
-        // 2. RESOURCE BLOCKING (Speed up TataCliq & bypass image-based tracking)
+        // 2. RESOURCE OPTIMIZATION
         await page.setRequestInterception(true);
         page.on('request', (req) => {
             const type = req.resourceType();
-            const blockedTypes = ['font', 'stylesheet']; // Allow images for other sites, block heavy stuff
-            // For TataCliq, block images too to force script priority
-            if (url.includes('tatacliq') && (type === 'image' || type === 'media')) {
-                req.abort();
-            } else if (blockedTypes.includes(type)) {
+            const blockedTypes = ['font', 'stylesheet']; 
+            // Don't block images for Savana as we need to find the right one
+            if (blockedTypes.includes(type)) {
                 req.abort();
             } else {
                 req.continue();
             }
         });
 
-        // 3. REALISTIC HEADERS
         await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setExtraHTTPHeaders({
             'Accept-Language': 'en-US,en;q=0.9',
             'Referer': 'https://www.google.com/',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-            'Sec-Ch-Ua-Mobile': '?0',
-            'Sec-Ch-Ua-Platform': '"macOS"'
+            'Upgrade-Insecure-Requests': '1'
         });
 
         await page.setViewport({ width: 1366, height: 768 });
@@ -62,7 +56,6 @@ async function scrapeProduct(url) {
         let attempts = 0;
         let finalData = { title: 'Unknown', image: '', price: 0, currency: '$' };
 
-        // --- RETRY LOOP ---
         while (attempts < 2) {
             attempts++;
             try {
@@ -73,16 +66,15 @@ async function scrapeProduct(url) {
                     await client.send('Network.clearBrowserCookies');
                 }
 
-                // NAVIGATE
-                // Wait longer for redirects (Flipkart/Savana shared links)
+                // NAVIGATION with Extended Wait for Redirects
                 await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
 
-                // WAIT FOR DATA (Specific to TataCliq)
+                // SPECIFIC WAITS
                 if (url.includes('tatacliq')) {
-                    try {
-                        // Wait for the spinner to disappear or price to appear
-                        await page.waitForSelector('.ProductDescriptionPage__price', { timeout: 15000 });
-                    } catch(e) {}
+                    try { await page.waitForSelector('.ProductDescriptionPage__price, .ProductDetailsMainCard__price', { timeout: 15000 }); } catch(e) {}
+                }
+                if (url.includes('apollopharmacy')) {
+                    try { await page.waitForSelector('.PdpInfo__Price, .ProductPrice', { timeout: 10000 }); } catch(e) {}
                 }
 
                 // AUTO-SCROLL
@@ -103,14 +95,14 @@ async function scrapeProduct(url) {
                 });
                 await wait(2000);
 
-                // EXTRACTION
+                // DATA EXTRACTION
                 finalData = await page.evaluate(() => {
                     let title = document.title;
                     let image = "";
                     let price = 0;
                     let currency = null;
 
-                    // META TAGS
+                    // META TAGS (Best for Savana/Tata/Apollo)
                     const metaPrice = document.querySelector('meta[property="product:price:amount"]')?.content ||
                                       document.querySelector('meta[property="og:price:amount"]')?.content;
                     if (metaPrice) price = metaPrice;
@@ -149,7 +141,7 @@ async function scrapeProduct(url) {
                             'div._30jeq3._16Jk6d', 'div._30jeq3', // Flipkart
                             '.product-price-value', '#ProductPrice', '.price-item--regular', '.price__current', // Savana/Shopify
                             'h4[color="greyBase"]', '.ProductDescription__PriceText-sc-17crh2v-0 h4', // Meesho
-                            '.PdpInfo__Price', '.ProductPrice', // Apollo Pharmacy
+                            '.PdpInfo__Price', '.ProductPrice', '.PriceGroup__Price', // Apollo
                             '.a-price-whole', '.price', '.money', 'bdi'
                         ];
                         
@@ -180,7 +172,6 @@ async function scrapeProduct(url) {
                     return { title, image, price, currency };
                 });
 
-                // Success Check
                 if (finalData.price) {
                     let p = parseFloat(finalData.price.toString().replace(/[^0-9.]/g, ''));
                     if (!isNaN(p) && p > 0) {
@@ -191,7 +182,7 @@ async function scrapeProduct(url) {
             } catch (e) { console.log("Attempt failed:", e.message); }
         }
 
-        // DEBUG
+        // DEBUG SNAPSHOT
         if (!finalData.price || finalData.price === 0) {
             try {
                 const debugPath = path.resolve(__dirname, '../client/dist/debug.png');
