@@ -16,14 +16,18 @@ async function scrapeProduct(url) {
                 '--disable-setuid-sandbox', 
                 '--disable-dev-shm-usage',
                 '--window-size=1920,1080',
-                '--disable-blink-features=AutomationControlled'
+                '--disable-blink-features=AutomationControlled',
+                '--disable-features=IsolateOrigins,site-per-process'
             ]
         });
 
         const page = await browser.newPage();
         
-        // STEALTH HEADERS
-        await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        // 1. BYPASS CSP (Helps with TataCliq scripts loading)
+        await page.setBypassCSP(true);
+
+        // 2. STEALTH HEADERS
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setExtraHTTPHeaders({
             'Accept-Language': 'en-US,en;q=0.9',
             'Referer': 'https://www.google.com/',
@@ -35,21 +39,31 @@ async function scrapeProduct(url) {
         let attempts = 0;
         let finalData = { title: 'Unknown', image: '', price: 0, currency: '$' };
 
-        // --- RETRY LOOP (The "Double Tap" Fix) ---
+        // --- RETRY LOOP ---
         while (attempts < 2) {
             attempts++;
             try {
                 console.log(`Attempt ${attempts} for ${url}...`);
                 
-                // 1. NAVIGATE
-                if (attempts === 1) {
-                    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-                } else {
-                    console.log("Price not found. Reloading page...");
-                    await page.reload({ waitUntil: 'networkidle2' });
+                if (attempts > 1) {
+                    console.log("Clearing cookies for retry...");
+                    const client = await page.target().createCDPSession();
+                    await client.send('Network.clearBrowserCookies');
+                    await client.send('Network.clearBrowserCache');
                 }
 
-                // 2. AUTO-SCROLL
+                // NAVIGATE
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+                // --- SITE SPECIFIC WAITS (Crucial for TataCliq) ---
+                if (url.includes('tatacliq')) {
+                    try {
+                        // Wait specifically for the price tag to appear
+                        await page.waitForSelector('.ProductDescriptionPage__price', { timeout: 15000 });
+                    } catch(e) { console.log("TataCliq selector wait timed out"); }
+                }
+
+                // AUTO-SCROLL
                 await page.evaluate(async () => {
                     await new Promise((resolve) => {
                         let totalHeight = 0;
@@ -58,16 +72,17 @@ async function scrapeProduct(url) {
                             const scrollHeight = document.body.scrollHeight;
                             window.scrollBy(0, distance);
                             totalHeight += distance;
-                            if(totalHeight >= scrollHeight || totalHeight > 3000){
+                            if(totalHeight >= scrollHeight || totalHeight > 2000){
                                 clearInterval(timer);
                                 resolve();
                             }
                         }, 100);
                     });
                 });
-                await wait(2000);
+                
+                await wait(3000);
 
-                // 3. EXTRACTION
+                // EXTRACTION
                 finalData = await page.evaluate(() => {
                     let title = document.title;
                     let image = "";
@@ -86,14 +101,35 @@ async function scrapeProduct(url) {
                     const metaImage = document.querySelector('meta[property="og:image"]')?.content;
                     if (metaImage) image = metaImage;
 
-                    // VISUAL SELECTORS (Updated for Flipkart)
+                    // JSON-LD
+                    if (!price || price === 0) {
+                        const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+                        for (let script of scripts) {
+                            try {
+                                const json = JSON.parse(script.innerText);
+                                const product = Array.isArray(json) ? json.find(i => i['@type'] === 'Product') : json;
+                                if (product) {
+                                    if (product.name) title = product.name;
+                                    if (!image && product.image) image = Array.isArray(product.image) ? product.image[0] : product.image;
+                                    const offer = Array.isArray(product.offers) ? product.offers[0] : product.offers;
+                                    if (offer) {
+                                        if (offer.price) price = offer.price;
+                                        if (offer.priceCurrency) currency = offer.priceCurrency;
+                                    }
+                                }
+                            } catch (e) {}
+                        }
+                    }
+
+                    // VISUAL SELECTORS
                     if (!price || price === 0) {
                         const selectors = [
-                            // Flipkart Specific
+                            // Tata Cliq
+                            '.ProductDescriptionPage__price', '.ProductDetailsMainCard__price h3',
+                            // Flipkart
                             'div._30jeq3._16Jk6d', 'div._30jeq3', '.CEmiEU ._30jeq3',
-                            // Tata / Savana / Others
-                            '.ProductDescriptionPage__price', '.product-price-value', 
-                            '#ProductPrice', '.price-item--regular', '.price__current',
+                            // Savana/Others
+                            '.product-price-value', '#ProductPrice', '.price-item--regular', '.price__current',
                             'h4[color="greyBase"]', '.ProductDescription__PriceText-sc-17crh2v-0 h4',
                             '.a-price-whole', '.price', '.money', 'bdi'
                         ];
@@ -115,7 +151,7 @@ async function scrapeProduct(url) {
                     }
 
                     if (!image) {
-                        const imgSelectors = ['img._396cs4', '.product__media img', '.swiper-slide-active img', '#landingImage'];
+                        const imgSelectors = ['.ProductDetailsMainCard__galleryImage img', 'img._396cs4', '.product__media img', '.swiper-slide-active img', '#landingImage'];
                         for (let sel of imgSelectors) {
                             const el = document.querySelector(sel);
                             if (el) { image = el.src || el.content; if(image) break; }
@@ -130,24 +166,19 @@ async function scrapeProduct(url) {
                     let p = parseFloat(finalData.price.toString().replace(/[^0-9.]/g, ''));
                     if (!isNaN(p) && p > 0) {
                         finalData.price = p;
-                        break; // SUCCESS! Exit retry loop
+                        break; // Success
                     }
                 }
-                
-                // If price is still 0, loop will retry
-                
             } catch (e) {
                 console.log("Error during attempt:", e.message);
             }
         }
 
-        // --- DEBUGGING ---
+        // DEBUGGING SNAPSHOT
         if (!finalData.price || finalData.price === 0) {
             try {
-                const domain = new URL(url).hostname.replace('www.', '');
                 const debugPath = path.resolve(__dirname, '../client/dist/debug.png');
                 await page.screenshot({ path: debugPath, fullPage: false });
-                console.log(`📸 Debug screenshot saved to ${debugPath}`);
             } catch (e) {}
         }
 
