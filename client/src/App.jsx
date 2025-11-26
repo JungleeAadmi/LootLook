@@ -94,20 +94,27 @@ function App() {
 
   const handleCheckAll = async () => {
       if (checkingAll) return;
-      if (!confirm(`Check prices for all ${items.length} items?`)) return;
+      if (!confirm(`Are you sure you want to check prices for all ${items.length} items? This might take a while.`)) return;
       
       setCheckingAll(true);
+      
       for (const item of items) {
-          try { await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST' }); } 
-          catch (e) { console.error(e); }
+          try {
+              await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST' });
+          } catch (e) {
+              console.error(`Failed to refresh ${item.name}`, e);
+          }
       }
+      
       await fetchItems();
       setCheckingAll(false);
-      alert("Complete!");
+      alert("All checks complete!");
   };
 
   const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text).then(() => alert("Link copied!"));
+    navigator.clipboard.writeText(text).then(() => {
+      alert("Link copied!");
+    }).catch(err => console.error('Failed to copy: ', err));
   };
 
   const openHistory = async (item) => {
@@ -123,41 +130,24 @@ function App() {
   };
 
   const getTrend = (c, p) => (!p || c === p) ? 'neutral' : (c < p ? 'down' : 'up');
-  const uniqueDomains = ['ALL', ...new Set(items.map(i => getDomain(i.url)))];
+  
+  // --- SORTED DOMAINS ---
+  const domains = [...new Set(items.map(i => getDomain(i.url)))].sort();
+  const uniqueDomains = ['ALL', ...domains];
+  
   const filteredItems = filterDomain === 'ALL' ? items : items.filter(i => getDomain(i.url) === filterDomain);
 
   return (
     <div className={`app-container ${theme}`}>
-      {/* AESTHETIC HEADER */}
       <header className="header">
         <div className="brand">
             <img src="/logo.svg" alt="Logo" className="logo-icon" />
             <h1>LootLook</h1>
         </div>
-        
         <div className="header-actions">
-            {/* Check All Button */}
-            <button 
-                className={`icon-btn ${checkingAll ? 'spinning' : ''}`} 
-                onClick={handleCheckAll} 
-                title="Check All Prices"
-            >
-                ⚡
-            </button>
-
-            {/* Sync Button */}
-            <button 
-                className={`icon-btn ${globalSync ? 'spinning' : ''}`} 
-                onClick={fetchItems} 
-                title="Sync Data"
-            >
-                ↻
-            </button>
-            
-            {/* Theme Toggle */}
-            <button className="icon-btn" onClick={toggleTheme} title="Toggle Theme">
-                {theme === 'dark' ? '☀️' : '🌙'}
-            </button>
+            <button className={`icon-btn ${checkingAll ? 'spinning' : ''}`} onClick={handleCheckAll} title="Check All Prices">⚡</button>
+            <button className={`icon-btn ${globalSync ? 'spinning' : ''}`} onClick={fetchItems} title="Sync Data">↻</button>
+            <button className="icon-btn" onClick={toggleTheme} title="Toggle Theme">{theme === 'dark' ? '☀️' : '🌙'}</button>
         </div>
       </header>
 
@@ -189,10 +179,15 @@ function App() {
       <div className={`items-container ${viewMode}`}>
         {filteredItems.map(item => (
           <div key={item.id} className={`item-card trend-${getTrend(item.current_price, item.previous_price)}`}>
+            
             <div className="card-top" onClick={() => openHistory(item)}>
-                <div className="card-image" style={{backgroundImage: `url(${item.image_url})`}}>
-                   <div className="history-badge">Graph</div>
-                </div>
+                {/* IMAGE: Only show in Grid View */}
+                {viewMode === 'grid' && (
+                    <div className="card-image" style={{backgroundImage: `url(${item.image_url})`}}>
+                       <div className="history-badge">Graph</div>
+                    </div>
+                )}
+                
                 <div className="card-info">
                   <h3>{item.name}</h3>
                   <div className="price-row">
@@ -206,6 +201,7 @@ function App() {
                   </div>
                 </div>
             </div>
+            
             <div className="action-grid">
                 <button className="btn-action check" onClick={() => handleRefresh(item.id)} disabled={refreshing}>{refreshing ? '...' : 'Check'}</button>
                 <a href={item.url} target="_blank" rel="noreferrer" className="btn-action visit">Visit</a>
@@ -237,7 +233,7 @@ function App() {
                 <label>Tracking URL</label>
                 <div className="input-with-copy">
                     <input className="full-input" value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} />
-                    <button type="button" className="copy-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link">Copy</button>
+                    <button type="button" className="copy-btn text-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link">Copy</button>
                 </div>
                 <label>Retention</label><select className="full-select" value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}><option value="30">30 Days</option><option value="365">1 Year</option></select>
                 <button type="submit" className="save-btn">Save Changes</button>
