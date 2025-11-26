@@ -22,7 +22,6 @@ function App() {
   useEffect(() => { 
       fetchItems(); 
       document.body.className = theme; 
-      
       const onFocus = () => fetchItems();
       window.addEventListener('focus', onFocus);
       return () => window.removeEventListener('focus', onFocus);
@@ -94,27 +93,19 @@ function App() {
 
   const handleCheckAll = async () => {
       if (checkingAll) return;
-      if (!confirm(`Are you sure you want to check prices for all ${items.length} items? This might take a while.`)) return;
-      
+      if (!confirm(`Check all ${items.length} items?`)) return;
       setCheckingAll(true);
-      
       for (const item of items) {
-          try {
-              await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST' });
-          } catch (e) {
-              console.error(`Failed to refresh ${item.name}`, e);
-          }
+          try { await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST' }); } 
+          catch (e) { console.error(e); }
       }
-      
       await fetchItems();
       setCheckingAll(false);
       alert("All checks complete!");
   };
 
   const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      alert("Link copied!");
-    }).catch(err => console.error('Failed to copy: ', err));
+    navigator.clipboard.writeText(text).then(() => alert("Link copied!"));
   };
 
   const openHistory = async (item) => {
@@ -130,18 +121,13 @@ function App() {
   };
 
   const getTrend = (c, p) => (!p || c === p) ? 'neutral' : (c < p ? 'down' : 'up');
-  
-  // --- SORTED DOMAINS (A-Z) ---
-  // 1. Get all domains
-  // 2. Remove duplicates (Set)
-  // 3. Convert to array and Sort alphabetically
   const domains = [...new Set(items.map(i => getDomain(i.url)))].sort((a, b) => a.localeCompare(b));
   const uniqueDomains = ['ALL', ...domains];
-  
   const filteredItems = filterDomain === 'ALL' ? items : items.filter(i => getDomain(i.url) === filterDomain);
 
   return (
     <div className={`app-container ${theme}`}>
+      {/* HEADER */}
       <header className="header">
         <div className="brand">
             <img src="/logo.svg" alt="Logo" className="logo-icon" />
@@ -154,49 +140,56 @@ function App() {
         </div>
       </header>
 
-      <div className="add-container">
-        <form onSubmit={handleAdd} className="add-form">
-            <input type="url" placeholder="Paste product link here..." value={url} onChange={(e) => setUrl(e.target.value)} required className="url-input" />
-            <div className="controls">
-                <select value={retention} onChange={(e) => setRetention(e.target.value)} className="retention-select">
-                    <option value="30">30 Days</option><option value="90">90 Days</option><option value="365">1 Year</option>
+      {/* ADD SECTION */}
+      <div className="controls-wrapper">
+        <div className="add-container">
+            <form onSubmit={handleAdd} className="add-form">
+                <input type="url" placeholder="Paste product link here..." value={url} onChange={(e) => setUrl(e.target.value)} required className="url-input" />
+                <div className="form-actions">
+                    <select value={retention} onChange={(e) => setRetention(e.target.value)} className="retention-select">
+                        <option value="30">30 Days</option><option value="90">90 Days</option><option value="365">1 Year</option>
+                    </select>
+                    <button type="submit" disabled={loading} className="track-btn">{loading ? '...' : 'Track'}</button>
+                </div>
+            </form>
+        </div>
+
+        {/* FILTER & VIEW TOOLBAR */}
+        <div className="toolbar">
+            <div className="filters">
+                <label>Filter:</label>
+                <select onChange={(e) => setFilterDomain(e.target.value)} value={filterDomain}>
+                    {uniqueDomains.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
-                <button type="submit" disabled={loading} className="track-btn">{loading ? '...' : 'Track'}</button>
             </div>
-        </form>
+            <div className="view-toggles">
+                <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')}>Tiles</button>
+                <button className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')}>List</button>
+            </div>
+        </div>
       </div>
 
-      <div className="toolbar">
-          <div className="filters">
-              <label>Filter:</label>
-              <select onChange={(e) => setFilterDomain(e.target.value)} value={filterDomain}>
-                  {uniqueDomains.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-          </div>
-          <div className="view-toggles">
-              <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')}>Tiles</button>
-              <button className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')}>List</button>
-          </div>
-      </div>
-
+      {/* ITEMS CONTAINER */}
       <div className={`items-container ${viewMode}`}>
         {filteredItems.map(item => (
           <div key={item.id} className={`item-card trend-${getTrend(item.current_price, item.previous_price)}`}>
             
-            <div className="card-top" onClick={() => openHistory(item)}>
-                {/* IMAGE: Only show in Grid View */}
+            {/* TOP: CLICKABLE AREA (Graph) */}
+            <div className="card-content" onClick={() => openHistory(item)}>
+                {/* Image: Only in Grid View */}
                 {viewMode === 'grid' && (
                     <div className="card-image" style={{backgroundImage: `url(${item.image_url})`}}>
                        <div className="history-badge">Graph</div>
                     </div>
                 )}
                 
-                <div className="card-info">
+                {/* Text Details */}
+                <div className="text-details">
                   <h3>{item.name}</h3>
-                  <div className="price-row">
+                  <div className="price-block">
                     <span className="price">{item.currency}{item.current_price.toLocaleString()}</span>
                   </div>
-                  <div className="meta-row">
+                  <div className="meta-block">
                       <span className="domain-tag">{getDomain(item.url)}</span>
                       <span className="date-added">
                           {item.date_added ? `Added: ${new Date(item.date_added).toLocaleDateString(undefined, {day:'numeric', month:'short'})}` : ''}
@@ -205,6 +198,7 @@ function App() {
                 </div>
             </div>
             
+            {/* BOTTOM/RIGHT: ACTIONS (2x2 Grid) */}
             <div className="action-grid">
                 <button className="btn-action check" onClick={() => handleRefresh(item.id)} disabled={refreshing}>{refreshing ? '...' : 'Check'}</button>
                 <a href={item.url} target="_blank" rel="noreferrer" className="btn-action visit">Visit</a>
@@ -216,7 +210,7 @@ function App() {
         {items.length === 0 && !loading && <div className="empty-state">No loot tracked yet. Add a link!</div>}
       </div>
 
-      {/* Modals remain exactly the same */}
+      {/* MODALS */}
       {selectedItem && (
         <div className="modal-overlay" onClick={() => setSelectedItem(null)}>
           <div className="modal-content chart-modal" onClick={e => e.stopPropagation()}>
