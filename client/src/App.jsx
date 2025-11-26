@@ -94,27 +94,20 @@ function App() {
 
   const handleCheckAll = async () => {
       if (checkingAll) return;
-      if (!confirm(`Are you sure you want to check prices for all ${items.length} items? This might take a while.`)) return;
+      if (!confirm(`Check prices for all ${items.length} items?`)) return;
       
       setCheckingAll(true);
-      
       for (const item of items) {
-          try {
-              await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST' });
-          } catch (e) {
-              console.error(`Failed to refresh ${item.name}`, e);
-          }
+          try { await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST' }); } 
+          catch (e) { console.error(e); }
       }
-      
       await fetchItems();
       setCheckingAll(false);
-      alert("All checks complete!");
+      alert("Complete!");
   };
 
   const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      alert("Link copied!");
-    }).catch(err => console.error('Failed to copy: ', err));
+    navigator.clipboard.writeText(text).then(() => alert("Link copied!"));
   };
 
   const openHistory = async (item) => {
@@ -135,33 +128,36 @@ function App() {
 
   return (
     <div className={`app-container ${theme}`}>
+      {/* AESTHETIC HEADER */}
       <header className="header">
         <div className="brand">
-            <img src="/logo.svg" alt="Logo" className="logo-icon" style={{height:'40px', width:'40px', marginRight:'15px'}} />
+            <img src="/logo.svg" alt="Logo" className="logo-icon" />
             <h1>LootLook</h1>
         </div>
+        
         <div className="header-actions">
-            {/* CHECK ALL BUTTON (UPDATED TEXT) */}
+            {/* Check All Button */}
             <button 
-                className={`sync-btn text-btn ${checkingAll ? 'spinning' : ''}`} 
+                className={`icon-btn ${checkingAll ? 'spinning' : ''}`} 
                 onClick={handleCheckAll} 
                 title="Check All Prices"
-                style={{marginRight: '5px', width: 'auto', padding: '0 15px', borderRadius: '6px'}} 
             >
-                Check All
+                ⚡
             </button>
 
-            {/* SYNC BUTTON (UPDATED TEXT) */}
+            {/* Sync Button */}
             <button 
-                className={`sync-btn text-btn ${globalSync ? 'spinning' : ''}`} 
+                className={`icon-btn ${globalSync ? 'spinning' : ''}`} 
                 onClick={fetchItems} 
                 title="Sync Data"
-                style={{width: 'auto', padding: '0 15px', borderRadius: '6px'}}
             >
-                Sync
+                ↻
             </button>
             
-            <button className="theme-toggle" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
+            {/* Theme Toggle */}
+            <button className="icon-btn" onClick={toggleTheme} title="Toggle Theme">
+                {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
         </div>
       </header>
 
@@ -241,8 +237,7 @@ function App() {
                 <label>Tracking URL</label>
                 <div className="input-with-copy">
                     <input className="full-input" value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} />
-                    {/* NEW: Copy Button with Text */}
-                    <button type="button" className="copy-btn text-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link" style={{fontSize: '0.9rem', fontWeight: '600'}}>Copy</button>
+                    <button type="button" className="copy-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link">Copy</button>
                 </div>
                 <label>Retention</label><select className="full-select" value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}><option value="30">30 Days</option><option value="365">1 Year</option></select>
                 <button type="submit" className="save-btn">Save Changes</button>
