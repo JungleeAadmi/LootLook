@@ -50,7 +50,8 @@ body {
 }
 
 .app-container {
-  max-width: 1200px;
+  max-width: 95%; /* WIDER for Desktop */
+  width: 1600px; /* Max cap */
   margin: 0 auto;
   padding: 20px;
   min-height: 100vh;
@@ -94,7 +95,7 @@ h1 {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px;
+  padding: 15px; /* Uniform padding */
   box-shadow: 0 4px 20px rgba(0,0,0,0.05);
   margin-bottom: 20px;
 }
@@ -103,14 +104,13 @@ h1 {
 .toolbar { display: flex; justify-content: space-between; align-items: center; }
 
 /* --- UNIFORM INPUTS & BUTTONS --- */
-/* We force height: 48px for all interaction elements */
 .url-input, .retention-select, .track-btn, .filters select {
   height: 48px;
   padding: 0 15px;
   border-radius: 8px;
   font-family: var(--font-main);
   font-size: 1rem;
-  box-sizing: border-box; /* Critical for height match */
+  box-sizing: border-box;
   border: 1px solid var(--input-border);
 }
 
@@ -146,7 +146,7 @@ h1 {
 
 /* Filters & Toggles */
 .filters { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--text-muted); }
-.filters select { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); height: 38px; /* Smaller for filter */ }
+.filters select { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); height: 38px; }
 
 .view-toggles button {
   background: none; border: none; color: var(--text-muted); cursor: pointer;
@@ -198,38 +198,40 @@ h1 {
   background: var(--border); border-top: 1px solid var(--border);
 }
 
-/* --- LIST VIEW --- */
+/* --- LIST VIEW (NO IMAGE) --- */
 .items-container.list { display: flex; flex-direction: column; gap: 10px; }
 
 .items-container.list .item-card {
-  flex-direction: row; /* Horizontal layout */
-  padding: 0; /* Reset padding */
-  align-items: stretch; /* Match height */
+  flex-direction: row;
+  padding: 0;
+  align-items: stretch;
 }
 
 .items-container.list .card-top {
-  flex: 1; /* Take available space */
-  padding: 12px;
+  flex: 1;
+  padding: 10px 15px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  min-width: 0; /* Prevents text overflow */
 }
 
 .items-container.list h3 {
-  margin: 0 0 5px 0;
+  margin: 0 0 4px 0;
   font-size: 1rem;
   white-space: nowrap; 
   overflow: hidden; 
   text-overflow: ellipsis;
   display: block;
-  max-width: 100%;
+  width: 100%;
+  height: auto;
 }
 
 .items-container.list .price-row { margin: 0; display: flex; align-items: center; gap: 10px; }
-.items-container.list .price { font-size: 1.2rem; margin: 0; }
+.items-container.list .price { font-size: 1.1rem; margin: 0; }
 .items-container.list .meta-row { margin-top: 4px; }
 
-/* 2x2 Button Grid for List View (Fixed Width) */
+/* 2x2 Button Grid for List View */
 .items-container.list .action-grid {
   width: 140px;
   flex-shrink: 0;
@@ -237,8 +239,8 @@ h1 {
   grid-template-columns: 1fr 1fr;
   gap: 1px;
   background: var(--border);
-  border-left: 1px solid var(--border); /* Separator line */
-  border-top: none; /* Remove top border from grid view style */
+  border-left: 1px solid var(--border);
+  border-top: none;
 }
 
 /* Common Text Styles */
@@ -250,52 +252,25 @@ h1 {
 .btn-action {
   background: var(--bg-card);
   border: none;
-  padding: 0; /* Padding removed, using flex center */
+  padding: 0;
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: 700;
   font-family: var(--font-main);
   color: var(--text-main);
   transition: background 0.2s;
-  /* Centering Fix */
+  /* Center Text Perfectly */
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%; /* Fill grid cell */
-  min-height: 40px; /* Min touch target */
+  height: 100%;
+  min-height: 40px;
 }
 .btn-action:hover { background: var(--bg-dark); filter: brightness(0.95); }
 .btn-action.check { color: var(--btn-check); }
 .btn-action.visit { color: var(--btn-visit); }
 .btn-action.edit { color: var(--btn-edit); }
 .btn-action.remove { color: var(--btn-remove); }
-
-/* --- MOBILE ADJUSTMENTS --- */
-@media (max-width: 600px) {
-  .header { flex-wrap: wrap; }
-  .header-actions { margin-left: auto; }
-  
-  /* Stacked Add Form */
-  .add-form { flex-direction: column; }
-  .url-input { width: 100%; }
-  .controls { width: 100%; display: flex; gap: 10px; }
-  /* 50% Width for Controls */
-  .retention-select, .track-btn { flex: 1; width: 50%; }
-
-  /* Grid View: 2 Columns */
-  .items-container.grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .items-container.grid .card-image { height: 120px; }
-  .items-container.grid h3 { font-size: 0.9rem; height: 2.6em; }
-  .items-container.grid .price { font-size: 1.1rem; }
-  .items-container.grid .btn-action { font-size: 0.7rem; min-height: 35px; }
-  .items-container.grid .domain-tag { display: none; } /* Hide tags on grid mobile to save space */
-
-  /* List View Mobile Fixes */
-  .items-container.list .item-card { font-size: 0.9rem; }
-  .items-container.list h3 { font-size: 0.9rem; }
-  .items-container.list .action-grid { width: 120px; } /* Slightly narrower buttons on mobile */
-  .items-container.list .btn-action { font-size: 0.7rem; }
-}
 
 /* --- MODALS --- */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(4px); }
@@ -310,3 +285,31 @@ h1 {
 .input-with-copy .full-input { margin-bottom: 0; }
 .copy-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); padding: 0 15px; height: 42px; border-radius: 8px; cursor: pointer; font-weight: 600; }
 .save-btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 800; cursor: pointer; margin-top: 10px; }
+
+/* --- MOBILE ADJUSTMENTS --- */
+@media (max-width: 600px) {
+  .header { flex-wrap: wrap; }
+  .header-actions { margin-left: auto; }
+  
+  /* Stacked Add Form */
+  .add-form { flex-direction: column; }
+  .url-input { width: 100%; }
+  /* Equal width controls on mobile */
+  .controls { width: 100%; display: flex; gap: 10px; }
+  .retention-select { flex: 1; width: 50%; }
+  .track-btn { flex: 1; width: 50%; }
+
+  /* Grid View Mobile */
+  .items-container.grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .items-container.grid .card-image { height: 120px; }
+  .items-container.grid h3 { font-size: 0.85rem; height: 2.6em; }
+  .items-container.grid .price { font-size: 1.1rem; }
+  .items-container.grid .btn-action { font-size: 0.7rem; min-height: 35px; }
+  .items-container.grid .domain-tag { display: none; }
+
+  /* List View Mobile */
+  .items-container.list .item-card { font-size: 0.9rem; }
+  .items-container.list h3 { font-size: 0.9rem; }
+  .items-container.list .action-grid { width: 110px; } /* Smaller buttons on mobile list */
+  .items-container.list .btn-action { font-size: 0.7rem; }
+}

@@ -131,8 +131,11 @@ function App() {
 
   const getTrend = (c, p) => (!p || c === p) ? 'neutral' : (c < p ? 'down' : 'up');
   
-  // --- SORTED DOMAINS ---
-  const domains = [...new Set(items.map(i => getDomain(i.url)))].sort();
+  // --- SORTED DOMAINS (A-Z) ---
+  // 1. Get all domains
+  // 2. Remove duplicates (Set)
+  // 3. Convert to array and Sort alphabetically
+  const domains = [...new Set(items.map(i => getDomain(i.url)))].sort((a, b) => a.localeCompare(b));
   const uniqueDomains = ['ALL', ...domains];
   
   const filteredItems = filterDomain === 'ALL' ? items : items.filter(i => getDomain(i.url) === filterDomain);
@@ -213,6 +216,7 @@ function App() {
         {items.length === 0 && !loading && <div className="empty-state">No loot tracked yet. Add a link!</div>}
       </div>
 
+      {/* Modals remain exactly the same */}
       {selectedItem && (
         <div className="modal-overlay" onClick={() => setSelectedItem(null)}>
           <div className="modal-content chart-modal" onClick={e => e.stopPropagation()}>
