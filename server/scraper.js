@@ -188,7 +188,7 @@ async function scrapeProduct(url) {
                                 if(txt.length < 30) {
                                     price = txt;
                                     if (!currency) {
-                                        if (txt.includes('₹')) currency = 'INR';
+                                        if (txt.includes('₹') || txt.includes('Rs')) currency = 'INR';
                                         else if (txt.includes('$')) currency = 'USD';
                                     }
                                     break;
@@ -208,7 +208,7 @@ async function scrapeProduct(url) {
                     return { title, image, price, currency };
                 });
 
-                // Clean Price
+                // Success Check
                 if (finalData.price) {
                     let p = parseFloat(finalData.price.toString().replace(/[^0-9.]/g, ''));
                     if (!isNaN(p) && p > 0) {

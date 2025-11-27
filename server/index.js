@@ -1,15 +1,34 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path'); 
+const http = require('http'); // Required for Socket.io
+const { Server } = require('socket.io'); // Required for Socket.io
 const db = require('./db');
 const { scrapeProduct } = require('./scraper');
 const cron = require('node-cron');
 
 const app = express();
+// Wrap Express in HTTP server to attach Socket.io
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: { origin: "*" }
+});
+
 const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// --- LIVE SYNC ENGINE ---
+// 1. Listen for connections
+io.on('connection', (socket) => {
+    // console.log('Device connected:', socket.id); // Optional logging
+});
+
+// 2. Broadcast Helper
+const broadcastUpdate = () => {
+    io.emit('REFRESH_DATA'); // This triggers the useEffect in App.jsx
+};
 
 // --- URL CLEANER ---
 function cleanUrl(rawUrl) {
@@ -28,7 +47,7 @@ function cleanUrl(rawUrl) {
     } catch (e) { return rawUrl; }
 }
 
-// --- ROUTES ---
+// --- API ROUTES ---
 
 app.get('/api/items', (req, res) => {
     db.all("SELECT * FROM items ORDER BY id DESC", [], (err, rows) => {
@@ -54,6 +73,8 @@ app.post('/api/items', async (req, res) => {
     db.run(sql, params, function(err) {
         if (err) return res.status(400).json({ error: err.message });
         db.run(`INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)`, [this.lastID, data.price, now]);
+        
+        broadcastUpdate(); // Trigger Live Update
         res.json({ message: "Item added", id: this.lastID, ...data });
     });
 });
@@ -62,6 +83,8 @@ app.put('/api/items/:id', (req, res) => {
     const { url, retention } = req.body;
     db.run("UPDATE items SET url = ?, retention_days = ? WHERE id = ?", [cleanUrl(url), retention, req.params.id], (err) => {
         if (err) return res.status(400).json({ error: err.message });
+        
+        broadcastUpdate(); // Trigger Live Update
         res.json({ message: "Updated" });
     });
 });
@@ -69,6 +92,8 @@ app.put('/api/items/:id', (req, res) => {
 app.delete('/api/items/:id', (req, res) => {
     db.run("DELETE FROM items WHERE id = ?", req.params.id, (err) => {
         if (err) return res.status(400).json({ error: err.message });
+        
+        broadcastUpdate(); // Trigger Live Update
         res.json({ message: "Deleted" });
     });
 });
@@ -94,7 +119,8 @@ app.post('/api/refresh/:id', (req, res) => {
                 
             db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", 
                 [id, freshData.price, new Date().toISOString()]);
-                
+            
+            broadcastUpdate(); // Trigger Live Update
             res.json({ message: "Updated", price: freshData.price });
         } else {
             res.status(500).json({ error: "Scrape failed" });
@@ -106,14 +132,17 @@ app.post('/api/refresh/:id', (req, res) => {
 cron.schedule('0 */6 * * *', () => {
     db.all("SELECT * FROM items", [], async (err, rows) => {
         if (err) return;
+        let didUpdate = false;
         for (const item of rows) {
             const freshData = await scrapeProduct(item.url);
             if (freshData && freshData.price !== item.current_price) {
                 db.run("UPDATE items SET current_price = ?, previous_price = ?, currency = ?, last_checked = ? WHERE id = ?", 
                     [freshData.price, item.current_price, freshData.currency || '$', new Date().toISOString(), item.id]);
                 db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", [item.id, freshData.price, new Date().toISOString()]);
+                didUpdate = true;
             }
         }
+        if(didUpdate) broadcastUpdate(); // Trigger Live Update if cron changed anything
     });
 });
 
@@ -130,4 +159,6 @@ cron.schedule('0 0 * * *', () => {
 
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => { res.sendFile(path.join(__dirname, '../client/dist/index.html')); });
-app.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
+
+// CHANGE: server.listen instead of app.listen to enable Sockets
+server.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });

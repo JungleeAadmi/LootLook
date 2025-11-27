@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import io from 'socket.io-client';
 import './index.css';
 
 const API_URL = '/api';
+const socket = io(); 
 
 function App() {
   const [items, setItems] = useState([]);
@@ -12,18 +14,24 @@ function App() {
   const [refreshingId, setRefreshingId] = useState(null);
   const [theme, setTheme] = useState(localStorage.getItem('lootlook-theme') || 'dark');
   const [filterDomain, setFilterDomain] = useState('ALL');
-  
   const [selectedItem, setSelectedItem] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [history, setHistory] = useState([]);
   const [checkingAll, setCheckingAll] = useState(false); 
+  const [globalSync, setGlobalSync] = useState(false);
 
   useEffect(() => { 
       fetchItems(); 
       document.body.className = theme; 
+      
+      socket.on('REFRESH_DATA', () => { fetchItems(); });
+      
       const onFocus = () => fetchItems();
       window.addEventListener('focus', onFocus);
-      return () => window.removeEventListener('focus', onFocus);
+      return () => {
+          window.removeEventListener('focus', onFocus);
+          socket.off('REFRESH_DATA');
+      };
   }, [theme]);
 
   const getDomain = (url) => {
@@ -37,11 +45,13 @@ function App() {
   };
 
   const fetchItems = async () => {
+    setGlobalSync(true);
     try {
       const res = await fetch(`${API_URL}/items`);
       const json = await res.json();
       setItems(json.data);
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("Fetch failed:", err); }
+    setTimeout(() => setGlobalSync(false), 800);
   };
 
   const handleAdd = async (e) => {
@@ -55,7 +65,6 @@ function App() {
       });
       if (!res.ok) throw new Error("Failed to add");
       setUrl('');
-      fetchItems();
     } catch (err) { alert(err.message); }
     setLoading(false);
   };
@@ -63,7 +72,6 @@ function App() {
   const handleDelete = async (id) => {
     if(!confirm("Delete this item?")) return;
     await fetch(`${API_URL}/items/${id}`, { method: 'DELETE' });
-    fetchItems();
   };
 
   const handleUpdate = async (e) => {
@@ -75,15 +83,20 @@ function App() {
               body: JSON.stringify({ url: editingItem.url, retention: parseInt(editingItem.retention_days) })
           });
           setEditingItem(null);
-          fetchItems();
       } catch (err) { alert("Update failed"); }
   };
 
   const handleRefresh = async (id) => {
     setRefreshingId(id);
     try {
+        // Trigger backend refresh
         const res = await fetch(`${API_URL}/refresh/${id}`, { method: 'POST' });
-        if(res.ok) { fetchItems(); if(selectedItem?.id === id) openHistory(items.find(i => i.id === id)); }
+        if(res.ok) { 
+            // If the item currently being viewed is refreshed, update graph
+            if(selectedItem?.id === id) openHistory(items.find(i => i.id === id)); 
+        } else {
+            console.error("Refresh failed on server");
+        }
     } catch(err) { alert("Network error"); }
     setRefreshingId(null);
   };
@@ -96,7 +109,6 @@ function App() {
           try { await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST' }); } 
           catch (e) { console.error(e); }
       }
-      await fetchItems();
       setCheckingAll(false);
       alert("Completed!");
   };
@@ -127,14 +139,14 @@ function App() {
       <nav className="navbar">
         <div className="nav-content">
             <div className="brand">
-                {/* LOGO CONTAINER */}
                 <div className="logo-box">
-                    <img src="/logo.svg" alt="Logo" />
+                    <img src="/logo.svg" alt="Logo" className="logo-icon" />
                 </div>
                 <span className="brand-name">LootLook</span>
             </div>
             <div className="nav-actions">
                 <button className={`nav-btn ${checkingAll ? 'pulse' : ''}`} onClick={handleCheckAll} title="Check All">⚡</button>
+                <button className={`nav-btn ${globalSync ? 'spin' : ''}`} onClick={fetchItems} title="Sync">↻</button>
                 <button className="nav-btn theme-btn" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
             </div>
         </div>
@@ -168,12 +180,13 @@ function App() {
                     </div>
                     <div className="card-body">
                         <h3 onClick={() => openHistory(item)}>{item.name}</h3>
-                        <div className="price-row">
-                            <span className="price">{item.currency}{item.current_price.toLocaleString()}</span>
-                            <span className="date">Added: {item.date_added ? new Date(item.date_added).toLocaleDateString(undefined, {day:'2-digit', month:'short'}) : 'N/A'}</span>
+                        <div className="price-box">
+                            <span className="currency">{item.currency}</span>
+                            <span className="amount">{item.current_price.toLocaleString()}</span>
                         </div>
-                        <div className="meta-row">
-                            <span className="domain-tag">{getDomain(item.url)}</span>
+                        <div className="meta-info">
+                            <span className="badge">{getDomain(item.url)}</span>
+                            <span className="badge">{item.date_added ? new Date(item.date_added).toLocaleDateString(undefined, {day:'2-digit', month:'short'}) : 'N/A'}</span>
                         </div>
                     </div>
                     <div className="card-actions">
@@ -190,7 +203,7 @@ function App() {
         </section>
       </main>
 
-      {/* Modals omitted for brevity, logic remains identical */}
+      {/* Modals */}
       {selectedItem && (
         <div className="modal-backdrop" onClick={() => setSelectedItem(null)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
