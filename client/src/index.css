@@ -49,15 +49,22 @@ body { font-family: var(--font-main); background: var(--bg-app); color: var(--te
 .nav-content { width: 100%; max-width: 1400px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; }
 .brand { display: flex; align-items: center; gap: 12px; }
 
-/* LOGO FIX: Forced dimensions to prevent giant icons */
-.logo-icon { 
-    height: 36px; 
-    width: 36px; 
-    min-width: 36px; /* Prevents squishing */
+/* --- LOGO FIX --- */
+/* This forces the SVG to behave */
+.logo-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.logo-box img { 
+    height: 40px; 
+    width: 40px; 
+    min-width: 40px; 
+    max-width: 40px;
     object-fit: contain; 
 }
 
-h1 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
+.brand-name { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
 
 .nav-actions { display: flex; gap: 10px; }
 .nav-btn {
