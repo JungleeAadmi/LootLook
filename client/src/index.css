@@ -52,7 +52,7 @@ body { font-family: var(--font-main); background: var(--bg-app); color: var(--te
 .app-wrapper { min-height: 100vh; display: flex; flex-direction: column; }
 .main-content { width: 100%; max-width: 1400px; margin: 0 auto; padding: 20px; padding-top: 90px; }
 
-/* --- HEADER (Fixed) --- */
+/* --- HEADER --- */
 .navbar {
   position: fixed; top: 0; left: 0; right: 0; height: 70px;
   background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px);
