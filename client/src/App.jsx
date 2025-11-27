@@ -44,7 +44,7 @@ function App() {
       const json = await res.json();
       setItems(json.data);
     } catch (err) { console.error("Fetch failed:", err); }
-    setTimeout(() => setGlobalSync(false), 500);
+    setTimeout(() => setGlobalSync(false), 800);
   };
 
   const handleAdd = async (e) => {
@@ -59,7 +59,7 @@ function App() {
       if (!res.ok) throw new Error("Failed");
       setUrl('');
       fetchItems();
-    } catch (err) { alert("Error: " + err.message); }
+    } catch (err) { alert(err.message); }
     setLoading(false);
   };
 
@@ -93,7 +93,7 @@ function App() {
 
   const handleCheckAll = async () => {
       if (checkingAll) return;
-      if (!confirm(`Check all ${items.length} items?`)) return;
+      if (!confirm(`Check prices for all ${items.length} items?`)) return;
       setCheckingAll(true);
       for (const item of items) {
           try { await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST' }); } 
@@ -101,11 +101,10 @@ function App() {
       }
       await fetchItems();
       setCheckingAll(false);
-      alert("All checks complete!");
   };
 
   const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text).then(() => alert("Link copied!"));
+    navigator.clipboard.writeText(text).then(() => alert("Copied!"));
   };
 
   const openHistory = async (item) => {
@@ -126,121 +125,161 @@ function App() {
   const filteredItems = filterDomain === 'ALL' ? items : items.filter(i => getDomain(i.url) === filterDomain);
 
   return (
-    <div className={`app-container ${theme}`}>
-      {/* HEADER */}
-      <header className="header sticky-top">
-        <div className="brand">
-            <img src="/logo.svg" alt="Logo" className="logo-icon" />
-            <h1>LootLook</h1>
+    <div className={`app-wrapper ${theme}`}>
+      {/* --- HEADER --- */}
+      <nav className="navbar">
+        <div className="nav-content">
+            <div className="brand">
+                <div className="logo-box">
+                    <img src="/logo.svg" alt="Logo" />
+                </div>
+                <span className="brand-name">LootLook</span>
+            </div>
+            
+            <div className="nav-actions">
+                <button className={`nav-btn ${checkingAll ? 'pulse' : ''}`} onClick={handleCheckAll} title="Check All">⚡</button>
+                <button className={`nav-btn ${globalSync ? 'spin' : ''}`} onClick={fetchItems} title="Sync">↻</button>
+                <button className="nav-btn theme-btn" onClick={toggleTheme}>{theme === 'dark' ? '☀' : '🌙'}</button>
+            </div>
         </div>
-        <div className="header-actions">
-            <button className={`icon-btn ${checkingAll ? 'spinning' : ''}`} onClick={handleCheckAll} title="Check All">⚡</button>
-            <button className={`icon-btn ${globalSync ? 'spinning' : ''}`} onClick={fetchItems} title="Sync">↻</button>
-            <button className="icon-btn" onClick={toggleTheme} title="Theme">{theme === 'dark' ? '☀️' : '🌙'}</button>
-        </div>
-      </header>
+      </nav>
 
-      {/* CONTROLS (Sticky) */}
-      <div className="sticky-controls">
-        <div className="add-container">
-            <form onSubmit={handleAdd} className="add-form">
-                <input type="url" placeholder="Paste product link here..." value={url} onChange={(e) => setUrl(e.target.value)} required className="url-input" />
-                <div className="controls">
-                    <select value={retention} onChange={(e) => setRetention(e.target.value)} className="retention-select">
-                        <option value="30">30 Days</option><option value="90">90 Days</option><option value="365">1 Year</option>
+      <main className="main-content">
+        
+        {/* --- CONTROLS PANEL --- */}
+        <section className="controls-panel">
+            <form onSubmit={handleAdd} className="add-bar">
+                <input 
+                    type="url" 
+                    placeholder="Paste product link here..." 
+                    value={url} 
+                    onChange={(e) => setUrl(e.target.value)} 
+                    required 
+                    className="main-input"
+                />
+                <div className="add-actions">
+                    <select value={retention} onChange={(e) => setRetention(e.target.value)} className="main-select">
+                        <option value="30">30 Days</option>
+                        <option value="90">90 Days</option>
+                        <option value="365">1 Year</option>
                     </select>
-                    <button type="submit" disabled={loading} className="track-btn">{loading ? '...' : 'Track'}</button>
+                    <button type="submit" disabled={loading} className="primary-btn">
+                        {loading ? 'Adding...' : 'Track Price'}
+                    </button>
                 </div>
             </form>
-        </div>
 
-        <div className="toolbar">
-            <div className="filters">
-                <label>Filter:</label>
-                <select onChange={(e) => setFilterDomain(e.target.value)} value={filterDomain}>
-                    {uniqueDomains.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
+            <div className="filter-bar">
+                <div className="filter-group">
+                    <label>Filter:</label>
+                    <select onChange={(e) => setFilterDomain(e.target.value)} value={filterDomain}>
+                        {uniqueDomains.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                </div>
+                <div className="view-switch">
+                    <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')}>Tiles</button>
+                    <button className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')}>List</button>
+                </div>
             </div>
-            <div className="view-toggles">
-                <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')}>Tiles</button>
-                <button className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')}>List</button>
-            </div>
-        </div>
-      </div>
+        </section>
 
-      {/* SCROLLABLE LIST */}
-      <div className={`items-container ${viewMode}`}>
-        {filteredItems.map(item => (
-          <div key={item.id} className={`item-card trend-${getTrend(item.current_price, item.previous_price)}`}>
-            
-            {/* CLICKABLE AREA */}
-            <div className="card-main" onClick={() => openHistory(item)}>
-                
-                {/* Row 1: Photo (Grid & List Mobile) */}
-                <div className="card-row row-photo">
-                    <div className="card-image" style={{backgroundImage: `url(${item.image_url})`}}>
-                       <div className="history-badge">Graph</div>
+        {/* --- ITEMS GRID --- */}
+        <section className={`items-grid mode-${viewMode}`}>
+            {filteredItems.map(item => (
+                <article key={item.id} className={`item-card trend-${getTrend(item.current_price, item.previous_price)}`}>
+                    
+                    {/* BODY: Click to see graph */}
+                    <div className="card-body" onClick={() => openHistory(item)}>
+                        {/* Image only for Grid Mode */}
+                        {viewMode === 'grid' && (
+                            <div className="card-media">
+                                <div className="img-bg" style={{backgroundImage: `url(${item.image_url})`}}></div>
+                                <span className="graph-tag">View Graph</span>
+                            </div>
+                        )}
+                        
+                        <div className="card-details">
+                            <h3 title={item.name}>{item.name}</h3>
+                            
+                            <div className="price-box">
+                                <span className="currency">{item.currency}</span>
+                                <span className="amount">{item.current_price.toLocaleString()}</span>
+                            </div>
+
+                            <div className="meta-info">
+                                <span className="badge domain">{getDomain(item.url)}</span>
+                                <span className="badge date">{item.date_added ? new Date(item.date_added).toLocaleDateString(undefined, {day:'2-digit', month:'short'}) : 'N/A'}</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                {/* Row 2: Name */}
-                <div className="card-row row-name">
-                    <h3>{item.name}</h3>
-                </div>
-
-                {/* Row 3: Price */}
-                <div className="card-row row-price">
-                    <span className="price">{item.currency}{item.current_price.toLocaleString()}</span>
-                </div>
-
-                {/* Row 4: Date Added */}
-                <div className="card-row row-date">
-                    <span className="label">Added: </span>
-                    <span className="val">{item.date_added ? new Date(item.date_added).toLocaleDateString(undefined, {day:'2-digit', month:'short'}) : 'N/A'}</span>
-                </div>
-
-                {/* Row 5: Website Name */}
-                <div className="card-row row-website">
-                    <span className="domain-tag">{getDomain(item.url)}</span>
-                </div>
-            </div>
+                    {/* FOOTER: Actions */}
+                    <div className="card-actions">
+                        <button onClick={() => handleRefresh(item.id)} disabled={refreshing} className="action-btn check">Check</button>
+                        <a href={item.url} target="_blank" rel="noreferrer" className="action-btn visit">Visit</a>
+                        <button onClick={() => setEditingItem(item)} className="action-btn edit">Edit</button>
+                        <button onClick={() => handleDelete(item.id)} className="action-btn remove">Remove</button>
+                    </div>
+                </article>
+            ))}
             
-            {/* Row 6: Action Grid (2x2) */}
-            <div className="action-grid">
-                <button className="btn-action check" onClick={() => handleRefresh(item.id)} disabled={refreshing}>Check</button>
-                <a href={item.url} target="_blank" rel="noreferrer" className="btn-action visit">Visit</a>
-                <button className="btn-action edit" onClick={() => setEditingItem(item)}>Edit</button>
-                <button className="btn-action remove" onClick={() => handleDelete(item.id)}>Remove</button>
-            </div>
-          </div>
-        ))}
-        {items.length === 0 && !loading && <div className="empty-state">No loot tracked yet. Add a link!</div>}
-      </div>
+            {items.length === 0 && !loading && (
+                <div className="empty-state">
+                    <div className="empty-icon">🔍</div>
+                    <p>No items yet. Paste a link above to start tracking!</p>
+                </div>
+            )}
+        </section>
 
-      {/* MODALS */}
+      </main>
+
+      {/* --- MODALS --- */}
       {selectedItem && (
-        <div className="modal-overlay" onClick={() => setSelectedItem(null)}>
-          <div className="modal-content chart-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h2>Price History</h2><button className="close-icon" onClick={() => setSelectedItem(null)}>×</button></div>
-            <div className="chart-wrapper">
+        <div className="modal-backdrop" onClick={() => setSelectedItem(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+                <h3>Price History</h3>
+                <button onClick={() => setSelectedItem(null)}>×</button>
+            </div>
+            <div className="modal-body graph-body">
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={history}><XAxis dataKey="date" stroke="var(--text-muted)" fontSize={12} /><YAxis stroke="var(--text-muted)" /><Tooltip contentStyle={{backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-main)'}} /><Line type="monotone" dataKey="price" stroke="var(--primary)" strokeWidth={3} dot={{r: 4}} /></LineChart>
+                  <LineChart data={history}>
+                    <XAxis dataKey="date" stroke="currentColor" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="currentColor" tickLine={false} axisLine={false} />
+                    <Tooltip 
+                        contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.5)'}}
+                        itemStyle={{color: '#38bdf8'}} 
+                    />
+                    <Line type="monotone" dataKey="price" stroke="#38bdf8" strokeWidth={3} dot={{r: 4, fill:'#38bdf8'}} activeDot={{r: 6}} />
+                  </LineChart>
                 </ResponsiveContainer>
             </div>
           </div>
         </div>
       )}
+
       {editingItem && (
-        <div className="modal-overlay" onClick={() => setEditingItem(null)}>
-          <div className="modal-content edit-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h2>Edit Item</h2><button className="close-icon" onClick={() => setEditingItem(null)}>×</button></div>
-            <form onSubmit={handleUpdate}>
-                <label>Tracking URL</label>
-                <div className="input-with-copy">
-                    <input className="full-input" value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} />
-                    <button type="button" className="copy-btn text-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link">Copy</button>
+        <div className="modal-backdrop" onClick={() => setEditingItem(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+                <h3>Edit Item</h3>
+                <button onClick={() => setEditingItem(null)}>×</button>
+            </div>
+            <form onSubmit={handleUpdate} className="modal-body form-body">
+                <div className="form-group">
+                    <label>Product Link</label>
+                    <div className="input-group">
+                        <input value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} />
+                        <button type="button" onClick={() => copyToClipboard(editingItem.url)}>Copy</button>
+                    </div>
                 </div>
-                <label>Retention</label><select className="full-select" value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}><option value="30">30 Days</option><option value="365">1 Year</option></select>
+                <div className="form-group">
+                    <label>Data Retention</label>
+                    <select value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}>
+                        <option value="30">30 Days</option>
+                        <option value="365">1 Year</option>
+                    </select>
+                </div>
                 <button type="submit" className="save-btn">Save Changes</button>
             </form>
           </div>
