@@ -1,4 +1,4 @@
-/* --- DESIGN SYSTEM --- */
+/* --- DESIGN SYSTEM & THEME --- */
 :root {
   color-scheme: dark;
   --font-main: 'Nunito', sans-serif;
@@ -48,8 +48,16 @@ body { font-family: var(--font-main); background: var(--bg-app); color: var(--te
 
 .nav-content { width: 100%; max-width: 1400px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; }
 .brand { display: flex; align-items: center; gap: 12px; }
-.logo-icon { height: 36px; width: 36px; }
-h1 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+/* LOGO FIX: Forced dimensions to prevent giant icons */
+.logo-icon { 
+    height: 36px; 
+    width: 36px; 
+    min-width: 36px; /* Prevents squishing */
+    object-fit: contain; 
+}
+
+h1 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
 
 .nav-actions { display: flex; gap: 10px; }
 .nav-btn {
@@ -77,12 +85,12 @@ h1 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, 
 .primary-btn { background: var(--primary); color: #fff; border: none; font-weight: 700; cursor: pointer; }
 .add-actions { display: flex; gap: 10px; }
 .filter-bar { align-items: center; } 
-.filter-select { flex: 1; max-width: 200px; } /* Constrain filter width on desktop */
+.filter-select { flex: 1; max-width: 200px; } 
 
 /* --- CARD GRID --- */
 .items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Auto Responsive */
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
   gap: 20px;
 }
 
@@ -108,20 +116,20 @@ h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit
 .price { font-size: 1.4rem; font-weight: 800; color: var(--accent-green); }
 .date { font-size: 0.75rem; color: var(--text-muted); }
 
-.meta-row { margin-top: auto; } /* Push to bottom of body */
+.meta-row { margin-top: auto; } 
 .domain-tag { background: var(--bg-app); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
 
 /* Card Actions (2x2 Grid) */
 .card-actions { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--border); }
 .action-btn {
-  background: transparent; border: none; padding: 12px 0; color: var(--text-muted); font-weight: 700; font-size: 0.85rem;
+  background: transparent; border: none; padding: 12px 0; font-weight: 700; font-size: 0.85rem;
   border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: pointer;
   display: flex; align-items: center; justify-content: center; text-decoration: none;
 }
-.action-btn:nth-child(2), .action-btn:nth-child(4) { border-right: none; } /* Remove right border for even buttons */
-.action-btn:nth-child(3), .action-btn:nth-child(4) { border-bottom: none; } /* Remove bottom border for last row */
+.action-btn:nth-child(2), .action-btn:nth-child(4) { border-right: none; }
+.action-btn:nth-child(3), .action-btn:nth-child(4) { border-bottom: none; }
 
-.action-btn:hover { background: var(--bg-app); color: var(--text-main); }
+.action-btn:hover { background: var(--bg-app); }
 .check { color: var(--btn-check); }
 .visit { color: var(--btn-visit); }
 .edit { color: var(--btn-edit); }
@@ -129,22 +137,23 @@ h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit
 
 /* --- MOBILE BREAKPOINT --- */
 @media (max-width: 768px) {
-  .main-content { padding: 85px 15px 15px 15px; } /* Adjust padding */
+  .main-content { padding-top: 80px; padding-left: 10px; padding-right: 10px; }
+  
   .add-bar { flex-direction: column; }
   .add-actions { display: flex; gap: 10px; }
-  .main-select, .primary-btn { flex: 1; width: 50%; } /* Equal width buttons */
+  .main-select, .primary-btn { flex: 1; width: 50%; } 
   
   .filter-bar { padding: 10px; }
-  .filter-select { max-width: none; flex: 1; } /* Full width filter on mobile */
+  .filter-select { max-width: none; flex: 1; } 
 
-  /* Mobile Grid: 1 Column Card Style (Big comfortable touch targets) */
+  /* Mobile Grid (1 Column Stack) */
   .items-grid { grid-template-columns: 1fr; gap: 15px; } 
-  .card-media { height: 180px; } /* Taller images on mobile */
+  .card-media { height: 180px; } 
   .price { font-size: 1.5rem; }
-  .action-btn { padding: 15px 0; font-size: 0.9rem; } /* Bigger buttons */
+  .action-btn { padding: 15px 0; font-size: 0.9rem; } 
 }
 
-/* --- MODAL --- */
+/* --- MODALS --- */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(4px); }
 .modal-box { background: var(--bg-panel); border-radius: 16px; border: 1px solid var(--border); width: 90%; max-width: 500px; overflow: hidden; }
 .modal-head { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
