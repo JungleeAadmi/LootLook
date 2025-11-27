@@ -14,7 +14,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 function initDb() {
     db.serialize(() => {
-        // 1. Create Items Table
+        // Items Table
         db.run(`CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             url TEXT NOT NULL,
@@ -28,7 +28,7 @@ function initDb() {
             date_added TEXT
         )`);
 
-        // 2. Create Price History Table
+        // Price History
         db.run(`CREATE TABLE IF NOT EXISTS prices (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             item_id INTEGER,
@@ -37,20 +37,12 @@ function initDb() {
             FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE
         )`);
 
-        // 3. MIGRATIONS (Auto-update old databases)
+        // Migration Logic (Safe to run every time)
         db.all("PRAGMA table_info(items)", (err, columns) => {
             if (err) return;
-            const colNames = columns.map(c => c.name);
-            
-            if (!colNames.includes('previous_price')) {
-                console.log("Migrating: Adding previous_price...");
-                db.run("ALTER TABLE items ADD COLUMN previous_price REAL DEFAULT 0");
-            }
-            if (!colNames.includes('date_added')) {
-                console.log("Migrating: Adding date_added...");
-                // Default to current time for existing items
-                db.run(`ALTER TABLE items ADD COLUMN date_added TEXT DEFAULT '${new Date().toISOString()}'`);
-            }
+            const names = columns.map(c => c.name);
+            if (!names.includes('previous_price')) db.run("ALTER TABLE items ADD COLUMN previous_price REAL DEFAULT 0");
+            if (!names.includes('date_added')) db.run(`ALTER TABLE items ADD COLUMN date_added TEXT DEFAULT '${new Date().toISOString()}'`);
         });
     });
 }

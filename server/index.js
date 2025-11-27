@@ -11,31 +11,24 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 
-// --- HELPER: URL SANITIZER ---
+// --- URL CLEANER ---
 function cleanUrl(rawUrl) {
     try {
-        // If it's a short link, don't clean it yet, let the scraper resolve it
-        if(rawUrl.includes('amzn.in') || rawUrl.includes('dl.flipkart') || rawUrl.includes('sharein')) {
-            return rawUrl;
-        }
-
+        if(rawUrl.includes('amzn.in') || rawUrl.includes('dl.flipkart') || rawUrl.includes('sharein')) return rawUrl;
+        
         const urlObj = new URL(rawUrl);
-        const paramsToRemove = ['utm_source', 'utm_medium', 'utm_campaign', 'ref', 'ref_', 'tag', 'fbclid', 'gclid', '_pos', '_sid', '_ss'];
+        const paramsToRemove = ['utm_source', 'utm_medium', 'utm_campaign', 'ref', 'ref_', 'tag', 'fbclid', 'gclid'];
         paramsToRemove.forEach(param => urlObj.searchParams.delete(param));
 
         if (urlObj.hostname.includes('amazon')) {
             const match = urlObj.pathname.match(/\/dp\/([A-Z0-9]{10})/);
             if (match) return `https://${urlObj.hostname}/dp/${match[1]}`;
         }
-        if (urlObj.hostname.includes('flipkart')) {
-            const match = urlObj.pathname.match(/\/p\/(itm[a-zA-Z0-9]+)/);
-            if (match) { urlObj.search = ''; return urlObj.toString(); }
-        }
         return urlObj.toString();
     } catch (e) { return rawUrl; }
 }
 
-// --- API ROUTES ---
+// --- ROUTES ---
 
 app.get('/api/items', (req, res) => {
     db.all("SELECT * FROM items ORDER BY id DESC", [], (err, rows) => {
@@ -44,13 +37,12 @@ app.get('/api/items', (req, res) => {
     });
 });
 
-// ADD NEW ITEM (Now saves date_added)
 app.post('/api/items', async (req, res) => {
     const { url, retention } = req.body;
     const cleanedUrl = cleanUrl(url);
     const data = await scrapeProduct(cleanedUrl);
     
-    if (!data) return res.status(500).json({ error: "Could not scrape link" });
+    if (!data) return res.status(500).json({ error: "Could not scrape link. Check URL or try again." });
 
     const now = new Date().toISOString();
     const sql = `INSERT INTO items (url, name, image_url, current_price, previous_price, currency, retention_days, last_checked, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -70,7 +62,7 @@ app.put('/api/items/:id', (req, res) => {
     const { url, retention } = req.body;
     db.run("UPDATE items SET url = ?, retention_days = ? WHERE id = ?", [cleanUrl(url), retention, req.params.id], (err) => {
         if (err) return res.status(400).json({ error: err.message });
-        res.json({ message: "Updated successfully" });
+        res.json({ message: "Updated" });
     });
 });
 
@@ -96,10 +88,13 @@ app.post('/api/refresh/:id', (req, res) => {
         const freshData = await scrapeProduct(item.url);
         if (freshData) {
             let prevPrice = (freshData.price !== item.current_price) ? item.current_price : item.previous_price;
+            
             db.run("UPDATE items SET current_price = ?, previous_price = ?, currency = ?, last_checked = ? WHERE id = ?", 
                 [freshData.price, prevPrice, freshData.currency || '$', new Date().toISOString(), id]);
+                
             db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", 
                 [id, freshData.price, new Date().toISOString()]);
+                
             res.json({ message: "Updated", price: freshData.price });
         } else {
             res.status(500).json({ error: "Scrape failed" });
@@ -107,9 +102,8 @@ app.post('/api/refresh/:id', (req, res) => {
     });
 });
 
-// --- AUTOMATION ---
+// --- AUTOMATION (Every 6 Hours) ---
 cron.schedule('0 */6 * * *', () => {
-    console.log('Running scheduled price check...');
     db.all("SELECT * FROM items", [], async (err, rows) => {
         if (err) return;
         for (const item of rows) {
@@ -117,16 +111,15 @@ cron.schedule('0 */6 * * *', () => {
             if (freshData && freshData.price !== item.current_price) {
                 db.run("UPDATE items SET current_price = ?, previous_price = ?, currency = ?, last_checked = ? WHERE id = ?", 
                     [freshData.price, item.current_price, freshData.currency || '$', new Date().toISOString(), item.id]);
-                db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", 
-                    [item.id, freshData.price, new Date().toISOString()]);
+                db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", [item.id, freshData.price, new Date().toISOString()]);
             }
         }
     });
 });
 
+// --- JANITOR (Daily) ---
 cron.schedule('0 0 * * *', () => {
     db.all("SELECT id, retention_days FROM items", [], (err, rows) => {
-        if (err) return;
         rows.forEach(item => {
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - item.retention_days);
