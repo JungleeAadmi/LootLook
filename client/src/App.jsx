@@ -172,7 +172,7 @@ function App() {
             <div className="filter-bar">
                 <div className="filter-group">
                     <label>Filter:</label>
-                    <select onChange={(e) => setFilterDomain(e.target.value)} value={filterDomain}>
+                    <select onChange={(e) => setFilterDomain(e.target.value)} value={filterDomain} className="filter-select">
                         {uniqueDomains.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                 </div>
@@ -190,13 +190,11 @@ function App() {
                     
                     {/* BODY: Click to see graph */}
                     <div className="card-body" onClick={() => openHistory(item)}>
-                        {/* Image only for Grid Mode */}
-                        {viewMode === 'grid' && (
-                            <div className="card-media">
-                                <div className="img-bg" style={{backgroundImage: `url(${item.image_url})`}}></div>
-                                <span className="graph-tag">View Graph</span>
-                            </div>
-                        )}
+                        {/* Image: Now shown in BOTH Grid AND List view */}
+                        <div className="card-media">
+                            <div className="img-bg" style={{backgroundImage: `url(${item.image_url})`}}></div>
+                            {viewMode === 'grid' && <span className="graph-tag">View Graph</span>}
+                        </div>
                         
                         <div className="card-details">
                             <h3 title={item.name}>{item.name}</h3>
