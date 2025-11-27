@@ -112,28 +112,37 @@ h1 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, 
 .card-body { padding: 15px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
 h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 2.8em; }
 
-.price-row { display: flex; justify-content: space-between; align-items: baseline; }
-.price { font-size: 1.4rem; font-weight: 800; color: var(--accent-green); }
-.date { font-size: 0.75rem; color: var(--text-muted); }
+.price-box { display: flex; align-items: baseline; gap: 4px; margin-bottom: 8px; }
+.currency { font-size: 0.9rem; color: var(--text-muted); }
+.amount { font-size: 1.4rem; font-weight: 800; color: var(--text-main); }
+.trend-down .amount { color: var(--accent-green); }
 
-.meta-row { margin-top: auto; } 
-.domain-tag { background: var(--bg-app); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
+.meta-info { display: flex; justify-content: space-between; align-items: center; }
+.badge { font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; background: var(--bg-app); color: var(--text-muted); }
 
-/* Card Actions (2x2 Grid) */
-.card-actions { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--border); }
-.action-btn {
-  background: transparent; border: none; padding: 12px 0; font-weight: 700; font-size: 0.85rem;
-  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: pointer;
-  display: flex; align-items: center; justify-content: center; text-decoration: none;
+/* Card Actions - Colored Text */
+.card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  border-top: 1px solid var(--border);
 }
-.action-btn:nth-child(2), .action-btn:nth-child(4) { border-right: none; }
-.action-btn:nth-child(3), .action-btn:nth-child(4) { border-bottom: none; }
-
+.action-btn {
+  background: transparent; border: none;
+  padding: 12px 0;
+  color: var(--text-muted); /* Default fallback */
+  font-size: 0.8rem; font-weight: 700;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+  text-decoration: none; display: flex; justify-content: center;
+}
+.action-btn:last-child { border-right: none; }
 .action-btn:hover { background: var(--bg-app); }
-.check { color: var(--btn-check); }
-.visit { color: var(--btn-visit); }
-.edit { color: var(--btn-edit); }
-.remove { color: var(--btn-remove); }
+
+/* Specific Button Text Colors */
+.action-btn.check { color: var(--btn-text-check); }
+.action-btn.visit { color: var(--btn-text-visit); }
+.action-btn.edit { color: var(--btn-text-edit); }
+.action-btn.remove { color: var(--btn-text-remove); }
 
 /* --- MOBILE BREAKPOINT --- */
 @media (max-width: 768px) {
@@ -162,7 +171,7 @@ h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit
 .modal-body { padding: 20px; }
 
 .form-group { margin-bottom: 15px; }
-.form-group label { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; }
+.form-group label { display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 0.9rem; }
 .input-group { display: flex; gap: 10px; }
 .input-group input { flex: 1; padding: 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-size: 16px; }
 .input-group button { padding: 0 15px; background: var(--bg-app); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); cursor: pointer; font-weight: 600; }
