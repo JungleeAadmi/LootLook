@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useState, useEffect, useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, Label } from 'recharts';
 import io from 'socket.io-client';
 import './index.css';
 
@@ -14,6 +14,7 @@ function App() {
   const [refreshingId, setRefreshingId] = useState(null);
   const [theme, setTheme] = useState(localStorage.getItem('lootlook-theme') || 'dark');
   const [filterDomain, setFilterDomain] = useState('ALL');
+  
   const [selectedItem, setSelectedItem] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [history, setHistory] = useState([]);
@@ -89,10 +90,8 @@ function App() {
   const handleRefresh = async (id) => {
     setRefreshingId(id);
     try {
-        // Trigger backend refresh
         const res = await fetch(`${API_URL}/refresh/${id}`, { method: 'POST' });
         if(res.ok) { 
-            // If the item currently being viewed is refreshed, update graph
             if(selectedItem?.id === id) openHistory(items.find(i => i.id === id)); 
         } else {
             console.error("Refresh failed on server");
@@ -130,6 +129,32 @@ function App() {
   };
 
   const getTrend = (c, p) => (!p || c === p) ? 'neutral' : (c < p ? 'down' : 'up');
+  
+  // Helper to render the price box with "Was" price if changed
+  const renderPriceBox = (item) => {
+      const trend = getTrend(item.current_price, item.previous_price);
+      const hasChange = item.previous_price > 0 && item.current_price !== item.previous_price;
+
+      return (
+        <div className="price-box">
+             <span className="currency">{item.currency}</span>
+             <span className="amount">{item.current_price.toLocaleString()}</span>
+             {hasChange && (
+                 <span className={`prev-price ${trend}`}>
+                     {trend === 'down' ? 'Was' : 'Low'} {item.previous_price.toLocaleString()}
+                 </span>
+             )}
+        </div>
+      );
+  };
+
+  // Stats for Graph
+  const graphStats = useMemo(() => {
+      if(history.length === 0) return { min: 0, max: 0 };
+      const prices = history.map(h => h.price);
+      return { min: Math.min(...prices), max: Math.max(...prices) };
+  }, [history]);
+
   const domains = [...new Set(items.map(i => getDomain(i.url)))].sort((a, b) => a.localeCompare(b));
   const uniqueDomains = ['ALL', ...domains];
   const filteredItems = filterDomain === 'ALL' ? items : items.filter(i => getDomain(i.url) === filterDomain);
@@ -180,10 +205,9 @@ function App() {
                     </div>
                     <div className="card-body">
                         <h3 onClick={() => openHistory(item)}>{item.name}</h3>
-                        <div className="price-box">
-                            <span className="currency">{item.currency}</span>
-                            <span className="amount">{item.current_price.toLocaleString()}</span>
-                        </div>
+                        
+                        {renderPriceBox(item)}
+
                         <div className="meta-info">
                             <span className="badge">{getDomain(item.url)}</span>
                             <span className="badge">{item.date_added ? new Date(item.date_added).toLocaleDateString(undefined, {day:'2-digit', month:'short'}) : 'N/A'}</span>
@@ -210,7 +234,23 @@ function App() {
             <div className="modal-head"><h3>History</h3><button onClick={() => setSelectedItem(null)}>×</button></div>
             <div className="modal-body graph-body">
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={history}><XAxis dataKey="date" stroke="currentColor" fontSize={12} /><YAxis stroke="currentColor" /><Tooltip contentStyle={{backgroundColor: 'var(--bg-panel)', border:'none', color:'var(--text-main)'}} /><Line type="monotone" dataKey="price" stroke="var(--primary)" strokeWidth={3} dot={{r: 4}} /></LineChart>
+                  <LineChart data={history} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}>
+                    <XAxis dataKey="date" stroke="currentColor" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="currentColor" tickLine={false} axisLine={false} domain={['auto', 'auto']} />
+                    <Tooltip contentStyle={{backgroundColor: 'var(--bg-panel)', border:'none', color:'var(--text-main)'}} />
+                    <Line type="monotone" dataKey="price" stroke="var(--primary)" strokeWidth={3} dot={{r: 4, fill:'#38bdf8'}} activeDot={{r: 6}} />
+                    
+                    {/* Min Price Line */}
+                    <ReferenceLine y={graphStats.min} stroke="var(--accent-green)" strokeDasharray="3 3">
+                        <Label value={`Min: ${graphStats.min}`} position="insideBottomRight" fill="var(--accent-green)" fontSize={10} />
+                    </ReferenceLine>
+                    
+                    {/* Max Price Line */}
+                    <ReferenceLine y={graphStats.max} stroke="var(--danger)" strokeDasharray="3 3">
+                        <Label value={`Max: ${graphStats.max}`} position="insideTopRight" fill="var(--danger)" fontSize={10} />
+                    </ReferenceLine>
+                    
+                  </LineChart>
                 </ResponsiveContainer>
             </div>
           </div>
