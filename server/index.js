@@ -17,19 +17,23 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 
-// Serve Screenshots
+// Serve Screenshots Statically
 app.use('/screenshots', express.static(path.join(__dirname, 'screenshots')));
 
-// Ensure screenshots dir exists
+// Ensure screenshots directory exists
 const screenshotDir = path.join(__dirname, 'screenshots');
 if (!fs.existsSync(screenshotDir)){
     fs.mkdirSync(screenshotDir);
 }
 
+// --- LIVE SYNC ENGINE ---
 io.on('connection', (socket) => { /* ... */ });
 
-const broadcastUpdate = () => { io.emit('REFRESH_DATA'); };
+const broadcastUpdate = () => {
+    io.emit('REFRESH_DATA');
+};
 
+// --- URL CLEANER ---
 function cleanUrl(rawUrl) {
     try {
         if(rawUrl.includes('amzn.in') || rawUrl.includes('dl.flipkart') || rawUrl.includes('sharein')) return rawUrl;
@@ -44,7 +48,7 @@ function cleanUrl(rawUrl) {
     } catch (e) { return rawUrl; }
 }
 
-// --- ROUTES ---
+// --- API ROUTES ---
 
 app.get('/api/items', (req, res) => {
     db.all("SELECT * FROM items ORDER BY id DESC", [], (err, rows) => {
@@ -57,16 +61,15 @@ app.post('/api/items', async (req, res) => {
     const { url, retention } = req.body;
     const cleanedUrl = cleanUrl(url);
     
-    // Pass ID for unique screenshot filename? No, we don't have ID yet.
-    // We will generate a temp ID or use timestamp for filename in scraper
     const data = await scrapeProduct(cleanedUrl);
     
     if (!data) return res.status(500).json({ error: "Could not scrape link. Check URL or try again." });
 
     const now = new Date().toISOString();
+    // Added screenshot_path to INSERT
     const sql = `INSERT INTO items (url, name, image_url, screenshot_path, current_price, previous_price, currency, retention_days, last_checked, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     const params = [
-        cleanedUrl, data.title, data.image, data.screenshot, // Save screenshot path
+        cleanedUrl, data.title, data.image, data.screenshot, 
         data.price, data.price, data.currency || '$', retention || 30, now, now
     ];
 
@@ -88,7 +91,7 @@ app.put('/api/items/:id', (req, res) => {
 });
 
 app.delete('/api/items/:id', (req, res) => {
-    // Ideally delete screenshot file here too
+    // Delete associated screenshot
     db.get("SELECT screenshot_path FROM items WHERE id = ?", [req.params.id], (err, row) => {
         if (row && row.screenshot_path) {
             const filePath = path.join(__dirname, 'screenshots', row.screenshot_path);
@@ -118,7 +121,7 @@ app.post('/api/refresh/:id', (req, res) => {
         if (freshData) {
             let prevPrice = (freshData.price !== item.current_price) ? item.current_price : item.previous_price;
             
-            // Update screenshot too if it changed
+            // Update screenshot path as well
             db.run("UPDATE items SET current_price = ?, previous_price = ?, currency = ?, screenshot_path = ?, last_checked = ? WHERE id = ?", 
                 [freshData.price, prevPrice, freshData.currency || '$', freshData.screenshot, new Date().toISOString(), id]);
                 

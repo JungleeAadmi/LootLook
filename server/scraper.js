@@ -1,33 +1,39 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const path = require('path'); 
-const Tesseract = require('tesseract.js'); // OCR Engine
+const fs = require('fs');
+const Tesseract = require('tesseract.js');
 
 puppeteer.use(StealthPlugin());
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-// --- VISUAL SCRAPER (OCR) ---
+// Ensure screenshot dir exists
+const screenshotDir = path.join(__dirname, 'screenshots');
+if (!fs.existsSync(screenshotDir)){ fs.mkdirSync(screenshotDir); }
+
 async function visualScrape(imageBuffer) {
     try {
         const { data: { text } } = await Tesseract.recognize(imageBuffer, 'eng');
-        // Look for price patterns like ₹ 1,299 or $10.50
-        const priceRegex = /([₹$€£Rs])\s?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/gi;
+        // Regex for price: Symbol + space? + digits + optional decimals
+        const priceRegex = /([₹$€£]|Rs\.?)\s?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i;
         const matches = text.match(priceRegex);
-        
-        if (matches && matches.length > 0) {
-            // Return the first valid price found
-            return matches[0]; 
+        if (matches) {
+            return { currency: matches[1], price: matches[2] };
         }
         return null;
     } catch (e) {
-        console.error("OCR Failed:", e);
+        console.error("OCR Error:", e);
         return null;
     }
 }
 
 async function scrapeProduct(url) {
     let browser;
+    // Create a unique filename for this scrape session
+    const filename = `snap_${Date.now()}.jpg`;
+    const filepath = path.join(screenshotDir, filename);
+    
     try {
         browser = await puppeteer.launch({
             headless: "new",
@@ -44,70 +50,115 @@ async function scrapeProduct(url) {
 
         const page = await browser.newPage();
         
-        // ... [Keep existing Stealth Headers & Setup] ...
+        // Stealth Headers
         await page.emulateTimezone('Asia/Kolkata');
         await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
         await page.setViewport({ width: 1366, height: 768 });
 
-        let attempts = 0;
-        let finalData = { title: 'Unknown', image: '', price: 0, currency: '$' };
+        // Navigate
+        try {
+            await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
+        } catch(e) { console.log("Navigation timeout, continuing..."); }
 
-        while (attempts < 2) {
-            attempts++;
-            try {
-                if (attempts > 1) {
-                    const client = await page.target().createCDPSession();
-                    await client.send('Network.clearBrowserCookies');
-                }
+        // Auto-Scroll to trigger lazy loading
+        await page.evaluate(async () => {
+            await new Promise((resolve) => {
+                let totalHeight = 0;
+                const distance = 150;
+                const timer = setInterval(() => {
+                    const scrollHeight = document.body.scrollHeight;
+                    window.scrollBy(0, distance);
+                    totalHeight += distance;
+                    if(totalHeight >= scrollHeight || totalHeight > 2500){
+                        clearInterval(timer);
+                        resolve();
+                    }
+                }, 100);
+            });
+        });
+        await wait(2000);
 
-                await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
-                
-                // ... [Keep existing Waits & Auto-Scroll] ...
-                await wait(3000);
+        // --- CAPTURE SCREENSHOT ---
+        await page.screenshot({ 
+            path: filepath, 
+            type: 'jpeg',
+            quality: 60,
+            clip: { x: 0, y: 0, width: 1366, height: 1000 } // First 1000px height
+        });
 
-                // 1. TRY STANDARD SCRAPING FIRST
-                finalData = await page.evaluate(() => {
-                    // ... [Keep existing selector logic] ...
-                    // (Return { title, image, price, currency })
-                    let price = 0; 
-                    // ... logic to find price ...
-                    return { price: price, ...otherData };
-                });
+        // Standard Extraction
+        let data = await page.evaluate(() => {
+            let title = document.title;
+            let image = "";
+            let price = 0;
+            let currency = null;
 
-                // 2. IF FAILED -> ACTIVATE VISUAL SCRAPER
-                if (!finalData.price || finalData.price === 0) {
-                    console.log("Standard scrape failed. Attempting Visual OCR...");
-                    
-                    // Take screenshot of the likely price area (top half of page)
-                    // We clip it to save processing time
-                    const screenshot = await page.screenshot({
-                        clip: { x: 0, y: 0, width: 1366, height: 800 }, 
-                        encoding: 'buffer' 
-                    });
-                    
-                    const ocrPrice = await visualScrape(screenshot);
-                    if (ocrPrice) {
-                        console.log(`OCR found price: ${ocrPrice}`);
-                        finalData.price = ocrPrice; // "₹1,299"
+            // JSON-LD & Meta (Fastest)
+            const metaPrice = document.querySelector('meta[property="product:price:amount"]')?.content || 
+                              document.querySelector('meta[property="og:price:amount"]')?.content;
+            if(metaPrice) price = metaPrice;
+            
+            const metaImage = document.querySelector('meta[property="og:image"]')?.content;
+            if(metaImage) image = metaImage;
+
+            // Selectors
+            if(!price || price == 0) {
+                const selectors = [
+                    '.product-price', '.price', '.a-price-whole', '._30jeq3', 
+                    '.pdp-price', '.ProductDescriptionPage__price', 
+                    'h4[color="greyBase"]', '#ProductPrice'
+                ];
+                for (let sel of selectors) {
+                    const el = document.querySelector(sel);
+                    if (el && el.innerText.match(/[0-9]/)) {
+                        price = el.innerText;
+                        break;
                     }
                 }
+            }
 
-                // Parse Price String to Number
-                if (finalData.price) {
-                    let p = parseFloat(finalData.price.toString().replace(/[^0-9.]/g, ''));
-                    if (!isNaN(p) && p > 0) {
-                        finalData.price = p;
-                        break; 
-                    }
-                }
+            return { title, image, price, currency };
+        });
 
-            } catch (e) { console.log("Attempt failed:", e.message); }
+        // --- OCR FALLBACK ---
+        if (!data.price || data.price == 0) {
+            console.log("Standard scrape failed. Running OCR...");
+            const imageBuffer = fs.readFileSync(filepath);
+            const ocrResult = await visualScrape(imageBuffer);
+            if (ocrResult) {
+                console.log("OCR Success:", ocrResult);
+                data.price = ocrResult.price;
+                data.currency = ocrResult.currency;
+            }
         }
 
-        // ... [Keep existing Currency Forcing & Return] ...
-        return finalData;
+        // Cleanup Data
+        let finalPrice = 0;
+        if (data.price) {
+            finalPrice = parseFloat(data.price.toString().replace(/[^0-9.]/g, ''));
+        }
+
+        // Currency Normalization
+        let finalCurrency = data.currency;
+        const currentUrl = page.url().toLowerCase();
+        const indianSites = ['.in', 'flipkart', 'meesho', 'tatacliq', 'myntra', 'savana', 'quartz'];
+        
+        if (indianSites.some(site => currentUrl.includes(site))) finalCurrency = 'INR';
+        
+        if (!finalCurrency || finalCurrency === 'INR' || finalCurrency === 'Rs' || finalCurrency === 'Rs.') finalCurrency = '₹';
+        else if (finalCurrency === 'USD') finalCurrency = '$';
+
+        return {
+            title: data.title ? data.title.substring(0, 100) : 'Unknown Product',
+            image: data.image || '',
+            screenshot: filename, // Return the local file name
+            price: finalPrice || 0,
+            currency: finalCurrency
+        };
 
     } catch (error) {
+        console.error(`Scrape failed for ${url}:`, error.message);
         return null;
     } finally {
         if (browser) await browser.close();
