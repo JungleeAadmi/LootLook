@@ -35,7 +35,6 @@ fi
 
 # 2. Install System Dependencies
 echo ">>> [2/6] Installing System Dependencies..."
-# Added build-essential for compiling native modules if needed
 sudo -E apt-get install -y -qq \
   curl git unzip sqlite3 build-essential \
   ca-certificates fonts-liberation libasound2t64 \
@@ -70,7 +69,7 @@ sudo npm install -g pm2 >/dev/null 2>&1
 echo ">>> [5/6] Building Application..."
 echo "--- Installing Server Dependencies (Socket.io, Tesseract, Puppeteer)..."
 cd "$APP_DIR/server" && npm install >/dev/null 2>&1
-echo "--- Installing Client Dependencies & Building..."
+echo "--- Installing Client Dependencies (including Socket.io-client) & Building..."
 cd "$APP_DIR/client" && npm install >/dev/null 2>&1
 npm run build >/dev/null 2>&1
 
