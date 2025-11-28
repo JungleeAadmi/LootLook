@@ -22,7 +22,6 @@ echo "--- Updating System..."
 sudo -E apt-get update -qq && sudo -E apt-get upgrade -y -qq
 
 echo "--- Configuring Timezone..."
-# FIX: Never ask interactively during install. Default to UTC if missing.
 if [ -f /etc/timezone ] || [ -h /etc/localtime ]; then
     CURRENT_TZ=$(cat /etc/timezone 2>/dev/null || date +%Z)
     echo "--- Timezone found: $CURRENT_TZ"
@@ -36,8 +35,9 @@ fi
 
 # 2. Install System Dependencies
 echo ">>> [2/6] Installing System Dependencies..."
+# Added build-essential for compiling native modules if needed
 sudo -E apt-get install -y -qq \
-  curl git unzip sqlite3 \
+  curl git unzip sqlite3 build-essential \
   ca-certificates fonts-liberation libasound2t64 \
   libatk-bridge2.0-0t64 libatk1.0-0t64 libc6 libcairo2 libcups2t64 \
   libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libgcc1 libglib2.0-0t64 \
@@ -68,7 +68,7 @@ sudo npm install -g pm2 >/dev/null 2>&1
 
 # 5. Application Build
 echo ">>> [5/6] Building Application..."
-echo "--- Installing Server Dependencies..."
+echo "--- Installing Server Dependencies (Socket.io, Tesseract, Puppeteer)..."
 cd "$APP_DIR/server" && npm install >/dev/null 2>&1
 echo "--- Installing Client Dependencies & Building..."
 cd "$APP_DIR/client" && npm install >/dev/null 2>&1
