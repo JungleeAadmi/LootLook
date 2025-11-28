@@ -7,30 +7,21 @@ const Tesseract = require('tesseract.js');
 puppeteer.use(StealthPlugin());
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
-
-// Ensure screenshot dir exists
 const screenshotDir = path.join(__dirname, 'screenshots');
 if (!fs.existsSync(screenshotDir)){ fs.mkdirSync(screenshotDir); }
 
 async function visualScrape(imageBuffer) {
     try {
         const { data: { text } } = await Tesseract.recognize(imageBuffer, 'eng');
-        // Regex for price: Symbol + space? + digits + optional decimals
         const priceRegex = /([₹$€£]|Rs\.?)\s?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i;
         const matches = text.match(priceRegex);
-        if (matches) {
-            return { currency: matches[1], price: matches[2] };
-        }
+        if (matches) return { currency: matches[1], price: matches[2] };
         return null;
-    } catch (e) {
-        console.error("OCR Error:", e);
-        return null;
-    }
+    } catch (e) { return null; }
 }
 
 async function scrapeProduct(url) {
     let browser;
-    // Create a unique filename for this scrape session
     const filename = `snap_${Date.now()}.jpg`;
     const filepath = path.join(screenshotDir, filename);
     
@@ -38,30 +29,21 @@ async function scrapeProduct(url) {
         browser = await puppeteer.launch({
             headless: "new",
             args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox', 
-                '--disable-dev-shm-usage',
-                '--window-size=1920,1080',
-                '--disable-blink-features=AutomationControlled',
-                '--disable-features=IsolateOrigins,site-per-process',
-                '--lang=en-US,en'
+                '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+                '--window-size=1920,1080', '--disable-blink-features=AutomationControlled',
+                '--disable-features=IsolateOrigins,site-per-process', '--lang=en-US,en'
             ]
         });
 
         const page = await browser.newPage();
-        
-        // Stealth Headers
         await page.emulateTimezone('Asia/Kolkata');
         await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
         await page.setViewport({ width: 1366, height: 768 });
 
-        // Navigate
-        try {
-            await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
-        } catch(e) { console.log("Navigation timeout, continuing..."); }
+        try { await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 }); } catch(e) {}
 
-        // Auto-Scroll to trigger lazy loading
+        // Auto-Scroll
         await page.evaluate(async () => {
             await new Promise((resolve) => {
                 let totalHeight = 0;
@@ -70,81 +52,47 @@ async function scrapeProduct(url) {
                     const scrollHeight = document.body.scrollHeight;
                     window.scrollBy(0, distance);
                     totalHeight += distance;
-                    if(totalHeight >= scrollHeight || totalHeight > 2500){
-                        clearInterval(timer);
-                        resolve();
-                    }
+                    if(totalHeight >= scrollHeight || totalHeight > 2500){ clearInterval(timer); resolve(); }
                 }, 100);
             });
         });
         await wait(2000);
 
-        // --- CAPTURE SCREENSHOT ---
-        await page.screenshot({ 
-            path: filepath, 
-            type: 'jpeg',
-            quality: 60,
-            clip: { x: 0, y: 0, width: 1366, height: 1000 } // First 1000px height
-        });
+        await page.screenshot({ path: filepath, type: 'jpeg', quality: 60, clip: { x: 0, y: 0, width: 1366, height: 1000 } });
 
-        // Standard Extraction
         let data = await page.evaluate(() => {
             let title = document.title;
             let image = "";
             let price = 0;
             let currency = null;
 
-            // JSON-LD & Meta (Fastest)
-            const metaPrice = document.querySelector('meta[property="product:price:amount"]')?.content || 
-                              document.querySelector('meta[property="og:price:amount"]')?.content;
+            const metaPrice = document.querySelector('meta[property="product:price:amount"]')?.content || document.querySelector('meta[property="og:price:amount"]')?.content;
             if(metaPrice) price = metaPrice;
-            
             const metaImage = document.querySelector('meta[property="og:image"]')?.content;
             if(metaImage) image = metaImage;
 
-            // Selectors
             if(!price || price == 0) {
-                const selectors = [
-                    '.product-price', '.price', '.a-price-whole', '._30jeq3', 
-                    '.pdp-price', '.ProductDescriptionPage__price', 
-                    'h4[color="greyBase"]', '#ProductPrice'
-                ];
+                const selectors = ['.product-price', '.price', '.a-price-whole', '._30jeq3', '.pdp-price', '.ProductDescriptionPage__price', 'h4[color="greyBase"]', '#ProductPrice', '.PdpInfo__Price'];
                 for (let sel of selectors) {
                     const el = document.querySelector(sel);
-                    if (el && el.innerText.match(/[0-9]/)) {
-                        price = el.innerText;
-                        break;
-                    }
+                    if (el && el.innerText.match(/[0-9]/)) { price = el.innerText; break; }
                 }
             }
-
             return { title, image, price, currency };
         });
 
-        // --- OCR FALLBACK ---
         if (!data.price || data.price == 0) {
-            console.log("Standard scrape failed. Running OCR...");
             const imageBuffer = fs.readFileSync(filepath);
             const ocrResult = await visualScrape(imageBuffer);
-            if (ocrResult) {
-                console.log("OCR Success:", ocrResult);
-                data.price = ocrResult.price;
-                data.currency = ocrResult.currency;
-            }
+            if (ocrResult) { data.price = ocrResult.price; data.currency = ocrResult.currency; }
         }
 
-        // Cleanup Data
         let finalPrice = 0;
-        if (data.price) {
-            finalPrice = parseFloat(data.price.toString().replace(/[^0-9.]/g, ''));
-        }
+        if (data.price) finalPrice = parseFloat(data.price.toString().replace(/[^0-9.]/g, ''));
 
-        // Currency Normalization
         let finalCurrency = data.currency;
         const currentUrl = page.url().toLowerCase();
-        const indianSites = ['.in', 'flipkart', 'meesho', 'tatacliq', 'myntra', 'savana', 'quartz'];
-        
-        if (indianSites.some(site => currentUrl.includes(site))) finalCurrency = 'INR';
+        if (['.in', 'flipkart', 'meesho', 'tatacliq', 'myntra', 'savana', 'quartz'].some(s => currentUrl.includes(s))) finalCurrency = 'INR';
         
         if (!finalCurrency || finalCurrency === 'INR' || finalCurrency === 'Rs' || finalCurrency === 'Rs.') finalCurrency = '₹';
         else if (finalCurrency === 'USD') finalCurrency = '$';
@@ -152,7 +100,7 @@ async function scrapeProduct(url) {
         return {
             title: data.title ? data.title.substring(0, 100) : 'Unknown Product',
             image: data.image || '',
-            screenshot: filename, // Return the local file name
+            screenshot: filename,
             price: finalPrice || 0,
             currency: finalCurrency
         };

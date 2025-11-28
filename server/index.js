@@ -17,21 +17,15 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 
-// Serve Screenshots Statically
+// Serve Screenshots
 app.use('/screenshots', express.static(path.join(__dirname, 'screenshots')));
 
-// Ensure screenshots directory exists
 const screenshotDir = path.join(__dirname, 'screenshots');
-if (!fs.existsSync(screenshotDir)){
-    fs.mkdirSync(screenshotDir);
-}
+if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir);
 
-// --- LIVE SYNC ENGINE ---
-io.on('connection', (socket) => { /* ... */ });
-
-const broadcastUpdate = () => {
-    io.emit('REFRESH_DATA');
-};
+// --- SOCKET.IO ---
+io.on('connection', (socket) => { /* Connected */ });
+const broadcastUpdate = () => { io.emit('REFRESH_DATA'); };
 
 // --- URL CLEANER ---
 function cleanUrl(rawUrl) {
@@ -48,8 +42,7 @@ function cleanUrl(rawUrl) {
     } catch (e) { return rawUrl; }
 }
 
-// --- API ROUTES ---
-
+// --- ROUTES ---
 app.get('/api/items', (req, res) => {
     db.all("SELECT * FROM items ORDER BY id DESC", [], (err, rows) => {
         if (err) return res.status(400).json({ error: err.message });
@@ -60,18 +53,13 @@ app.get('/api/items', (req, res) => {
 app.post('/api/items', async (req, res) => {
     const { url, retention } = req.body;
     const cleanedUrl = cleanUrl(url);
-    
     const data = await scrapeProduct(cleanedUrl);
     
-    if (!data) return res.status(500).json({ error: "Could not scrape link. Check URL or try again." });
+    if (!data) return res.status(500).json({ error: "Could not scrape link. Check URL." });
 
     const now = new Date().toISOString();
-    // Added screenshot_path to INSERT
     const sql = `INSERT INTO items (url, name, image_url, screenshot_path, current_price, previous_price, currency, retention_days, last_checked, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const params = [
-        cleanedUrl, data.title, data.image, data.screenshot, 
-        data.price, data.price, data.currency || '$', retention || 30, now, now
-    ];
+    const params = [cleanedUrl, data.title, data.image, data.screenshot, data.price, data.price, data.currency || '$', retention || 30, now, now];
 
     db.run(sql, params, function(err) {
         if (err) return res.status(400).json({ error: err.message });
@@ -91,7 +79,6 @@ app.put('/api/items/:id', (req, res) => {
 });
 
 app.delete('/api/items/:id', (req, res) => {
-    // Delete associated screenshot
     db.get("SELECT screenshot_path FROM items WHERE id = ?", [req.params.id], (err, row) => {
         if (row && row.screenshot_path) {
             const filePath = path.join(__dirname, 'screenshots', row.screenshot_path);
@@ -120,14 +107,10 @@ app.post('/api/refresh/:id', (req, res) => {
         const freshData = await scrapeProduct(item.url);
         if (freshData) {
             let prevPrice = (freshData.price !== item.current_price) ? item.current_price : item.previous_price;
-            
-            // Update screenshot path as well
             db.run("UPDATE items SET current_price = ?, previous_price = ?, currency = ?, screenshot_path = ?, last_checked = ? WHERE id = ?", 
                 [freshData.price, prevPrice, freshData.currency || '$', freshData.screenshot, new Date().toISOString(), id]);
-                
             db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", 
                 [id, freshData.price, new Date().toISOString()]);
-            
             broadcastUpdate();
             res.json({ message: "Updated", price: freshData.price });
         } else {
@@ -167,5 +150,4 @@ cron.schedule('0 0 * * *', () => {
 
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => { res.sendFile(path.join(__dirname, '../client/dist/index.html')); });
-
 server.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
