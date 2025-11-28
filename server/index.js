@@ -1,44 +1,41 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path'); 
-const http = require('http'); // Required for Socket.io
-const { Server } = require('socket.io'); // Required for Socket.io
+const http = require('http'); 
+const { Server } = require('socket.io'); 
 const db = require('./db');
 const { scrapeProduct } = require('./scraper');
 const cron = require('node-cron');
+const fs = require('fs');
 
 const app = express();
-// Wrap Express in HTTP server to attach Socket.io
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: { origin: "*" }
-});
+const io = new Server(server, { cors: { origin: "*" } });
 
 const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
 
-// --- LIVE SYNC ENGINE ---
-// 1. Listen for connections
-io.on('connection', (socket) => {
-    // console.log('Device connected:', socket.id); // Optional logging
-});
+// Serve Screenshots
+app.use('/screenshots', express.static(path.join(__dirname, 'screenshots')));
 
-// 2. Broadcast Helper
-const broadcastUpdate = () => {
-    io.emit('REFRESH_DATA'); // This triggers the useEffect in App.jsx
-};
+// Ensure screenshots dir exists
+const screenshotDir = path.join(__dirname, 'screenshots');
+if (!fs.existsSync(screenshotDir)){
+    fs.mkdirSync(screenshotDir);
+}
 
-// --- URL CLEANER ---
+io.on('connection', (socket) => { /* ... */ });
+
+const broadcastUpdate = () => { io.emit('REFRESH_DATA'); };
+
 function cleanUrl(rawUrl) {
     try {
         if(rawUrl.includes('amzn.in') || rawUrl.includes('dl.flipkart') || rawUrl.includes('sharein')) return rawUrl;
-        
         const urlObj = new URL(rawUrl);
         const paramsToRemove = ['utm_source', 'utm_medium', 'utm_campaign', 'ref', 'ref_', 'tag', 'fbclid', 'gclid'];
         paramsToRemove.forEach(param => urlObj.searchParams.delete(param));
-
         if (urlObj.hostname.includes('amazon')) {
             const match = urlObj.pathname.match(/\/dp\/([A-Z0-9]{10})/);
             if (match) return `https://${urlObj.hostname}/dp/${match[1]}`;
@@ -47,7 +44,7 @@ function cleanUrl(rawUrl) {
     } catch (e) { return rawUrl; }
 }
 
-// --- API ROUTES ---
+// --- ROUTES ---
 
 app.get('/api/items', (req, res) => {
     db.all("SELECT * FROM items ORDER BY id DESC", [], (err, rows) => {
@@ -59,22 +56,24 @@ app.get('/api/items', (req, res) => {
 app.post('/api/items', async (req, res) => {
     const { url, retention } = req.body;
     const cleanedUrl = cleanUrl(url);
+    
+    // Pass ID for unique screenshot filename? No, we don't have ID yet.
+    // We will generate a temp ID or use timestamp for filename in scraper
     const data = await scrapeProduct(cleanedUrl);
     
     if (!data) return res.status(500).json({ error: "Could not scrape link. Check URL or try again." });
 
     const now = new Date().toISOString();
-    const sql = `INSERT INTO items (url, name, image_url, current_price, previous_price, currency, retention_days, last_checked, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const sql = `INSERT INTO items (url, name, image_url, screenshot_path, current_price, previous_price, currency, retention_days, last_checked, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     const params = [
-        cleanedUrl, data.title, data.image, data.price, data.price, 
-        data.currency || '$', retention || 30, now, now
+        cleanedUrl, data.title, data.image, data.screenshot, // Save screenshot path
+        data.price, data.price, data.currency || '$', retention || 30, now, now
     ];
 
     db.run(sql, params, function(err) {
         if (err) return res.status(400).json({ error: err.message });
         db.run(`INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)`, [this.lastID, data.price, now]);
-        
-        broadcastUpdate(); // Trigger Live Update
+        broadcastUpdate();
         res.json({ message: "Item added", id: this.lastID, ...data });
     });
 });
@@ -83,18 +82,23 @@ app.put('/api/items/:id', (req, res) => {
     const { url, retention } = req.body;
     db.run("UPDATE items SET url = ?, retention_days = ? WHERE id = ?", [cleanUrl(url), retention, req.params.id], (err) => {
         if (err) return res.status(400).json({ error: err.message });
-        
-        broadcastUpdate(); // Trigger Live Update
+        broadcastUpdate();
         res.json({ message: "Updated" });
     });
 });
 
 app.delete('/api/items/:id', (req, res) => {
-    db.run("DELETE FROM items WHERE id = ?", req.params.id, (err) => {
-        if (err) return res.status(400).json({ error: err.message });
-        
-        broadcastUpdate(); // Trigger Live Update
-        res.json({ message: "Deleted" });
+    // Ideally delete screenshot file here too
+    db.get("SELECT screenshot_path FROM items WHERE id = ?", [req.params.id], (err, row) => {
+        if (row && row.screenshot_path) {
+            const filePath = path.join(__dirname, 'screenshots', row.screenshot_path);
+            if(fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        }
+        db.run("DELETE FROM items WHERE id = ?", req.params.id, (err) => {
+            if (err) return res.status(400).json({ error: err.message });
+            broadcastUpdate();
+            res.json({ message: "Deleted" });
+        });
     });
 });
 
@@ -114,13 +118,14 @@ app.post('/api/refresh/:id', (req, res) => {
         if (freshData) {
             let prevPrice = (freshData.price !== item.current_price) ? item.current_price : item.previous_price;
             
-            db.run("UPDATE items SET current_price = ?, previous_price = ?, currency = ?, last_checked = ? WHERE id = ?", 
-                [freshData.price, prevPrice, freshData.currency || '$', new Date().toISOString(), id]);
+            // Update screenshot too if it changed
+            db.run("UPDATE items SET current_price = ?, previous_price = ?, currency = ?, screenshot_path = ?, last_checked = ? WHERE id = ?", 
+                [freshData.price, prevPrice, freshData.currency || '$', freshData.screenshot, new Date().toISOString(), id]);
                 
             db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", 
                 [id, freshData.price, new Date().toISOString()]);
             
-            broadcastUpdate(); // Trigger Live Update
+            broadcastUpdate();
             res.json({ message: "Updated", price: freshData.price });
         } else {
             res.status(500).json({ error: "Scrape failed" });
@@ -128,7 +133,7 @@ app.post('/api/refresh/:id', (req, res) => {
     });
 });
 
-// --- AUTOMATION (Every 6 Hours) ---
+// --- AUTOMATION ---
 cron.schedule('0 */6 * * *', () => {
     db.all("SELECT * FROM items", [], async (err, rows) => {
         if (err) return;
@@ -136,17 +141,17 @@ cron.schedule('0 */6 * * *', () => {
         for (const item of rows) {
             const freshData = await scrapeProduct(item.url);
             if (freshData && freshData.price !== item.current_price) {
-                db.run("UPDATE items SET current_price = ?, previous_price = ?, currency = ?, last_checked = ? WHERE id = ?", 
-                    [freshData.price, item.current_price, freshData.currency || '$', new Date().toISOString(), item.id]);
+                db.run("UPDATE items SET current_price = ?, previous_price = ?, currency = ?, screenshot_path = ?, last_checked = ? WHERE id = ?", 
+                    [freshData.price, item.current_price, freshData.currency || '$', freshData.screenshot, new Date().toISOString(), item.id]);
                 db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", [item.id, freshData.price, new Date().toISOString()]);
                 didUpdate = true;
             }
         }
-        if(didUpdate) broadcastUpdate(); // Trigger Live Update if cron changed anything
+        if(didUpdate) broadcastUpdate();
     });
 });
 
-// --- JANITOR (Daily) ---
+// --- JANITOR ---
 cron.schedule('0 0 * * *', () => {
     db.all("SELECT id, retention_days FROM items", [], (err, rows) => {
         rows.forEach(item => {
@@ -160,5 +165,4 @@ cron.schedule('0 0 * * *', () => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => { res.sendFile(path.join(__dirname, '../client/dist/index.html')); });
 
-// CHANGE: server.listen instead of app.listen to enable Sockets
 server.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });

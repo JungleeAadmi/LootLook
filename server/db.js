@@ -20,6 +20,7 @@ function initDb() {
             url TEXT NOT NULL,
             name TEXT,
             image_url TEXT,
+            screenshot_path TEXT,
             current_price REAL,
             previous_price REAL DEFAULT 0,
             currency TEXT DEFAULT '$',
@@ -37,12 +38,13 @@ function initDb() {
             FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE
         )`);
 
-        // Migration Logic (Safe to run every time)
+        // Migrations
         db.all("PRAGMA table_info(items)", (err, columns) => {
             if (err) return;
             const names = columns.map(c => c.name);
             if (!names.includes('previous_price')) db.run("ALTER TABLE items ADD COLUMN previous_price REAL DEFAULT 0");
             if (!names.includes('date_added')) db.run(`ALTER TABLE items ADD COLUMN date_added TEXT DEFAULT '${new Date().toISOString()}'`);
+            if (!names.includes('screenshot_path')) db.run("ALTER TABLE items ADD COLUMN screenshot_path TEXT");
         });
     });
 }
