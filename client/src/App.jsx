@@ -130,7 +130,6 @@ function App() {
 
   const getTrend = (c, p) => (!p || c === p) ? 'neutral' : (c < p ? 'down' : 'up');
   
-  // Helper to render the price box with "Was" price if changed
   const renderPriceBox = (item) => {
       const trend = getTrend(item.current_price, item.previous_price);
       const hasChange = item.previous_price > 0 && item.current_price !== item.previous_price;
@@ -148,7 +147,6 @@ function App() {
       );
   };
 
-  // Stats for Graph
   const graphStats = useMemo(() => {
       if(history.length === 0) return { min: 0, max: 0 };
       const prices = history.map(h => h.price);
