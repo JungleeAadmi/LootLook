@@ -7,7 +7,6 @@ const API_URL = '/api';
 const socket = io(); 
 
 function App() {
-  // ... [Keep existing state] ...
   const [items, setItems] = useState([]);
   const [url, setUrl] = useState('');
   const [retention, setRetention] = useState(30);
@@ -15,35 +14,55 @@ function App() {
   const [refreshingId, setRefreshingId] = useState(null);
   const [theme, setTheme] = useState(localStorage.getItem('lootlook-theme') || 'dark');
   const [filterDomain, setFilterDomain] = useState('ALL');
+  
   const [selectedItem, setSelectedItem] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [viewImageItem, setViewImageItem] = useState(null);
+  
   const [history, setHistory] = useState([]);
   const [checkingAll, setCheckingAll] = useState(false); 
   const [globalSync, setGlobalSync] = useState(false);
 
-  // ... [Keep useEffects & Helpers] ...
   useEffect(() => { 
       fetchItems(); 
       document.body.className = theme; 
+      
       socket.on('REFRESH_DATA', () => { fetchItems(); });
+      
       const onFocus = () => fetchItems();
       window.addEventListener('focus', onFocus);
-      return () => { window.removeEventListener('focus', onFocus); socket.off('REFRESH_DATA'); };
+      return () => {
+          window.removeEventListener('focus', onFocus);
+          socket.off('REFRESH_DATA');
+      };
   }, [theme]);
 
   const getDomain = (url) => { try { return new URL(url).hostname.replace('www.', ''); } catch (e) { return 'unknown'; } };
   const toggleTheme = () => { const newTheme = theme === 'dark' ? 'colorful' : 'dark'; setTheme(newTheme); localStorage.setItem('lootlook-theme', newTheme); };
   const fetchItems = async () => { setGlobalSync(true); try { const res = await fetch(`${API_URL}/items`); const json = await res.json(); setItems(json.data); } catch (err) { console.error(err); } setTimeout(() => setGlobalSync(false), 800); };
-  const handleAdd = async (e) => { e.preventDefault(); setLoading(true); try { const res = await fetch(`${API_URL}/items`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, retention: parseInt(retention) }) }); if (!res.ok) throw new Error("Failed"); setUrl(''); } catch (err) { alert(err.message); } setLoading(false); };
-  const handleDelete = async (id) => { if(!confirm("Delete?")) return; await fetch(`${API_URL}/items/${id}`, { method: 'DELETE' }); };
+  
+  const handleAdd = async (e) => { e.preventDefault(); setLoading(true); try { const res = await fetch(`${API_URL}/items`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, retention: parseInt(retention) }) }); if (!res.ok) throw new Error("Failed to add"); setUrl(''); } catch (err) { alert(err.message); } setLoading(false); };
+  const handleDelete = async (id) => { if(!confirm("Delete this item?")) return; await fetch(`${API_URL}/items/${id}`, { method: 'DELETE' }); };
   const handleUpdate = async (e) => { e.preventDefault(); try { await fetch(`${API_URL}/items/${editingItem.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: editingItem.url, retention: parseInt(editingItem.retention_days) }) }); setEditingItem(null); } catch (err) { alert("Failed"); } };
   const handleRefresh = async (id) => { setRefreshingId(id); try { const res = await fetch(`${API_URL}/refresh/${id}`, { method: 'POST' }); if(res.ok) { if(selectedItem?.id === id) openHistory(items.find(i => i.id === id)); } } catch(err) { alert("Network error"); } setRefreshingId(null); };
   const handleCheckAll = async () => { if (checkingAll) return; if (!confirm(`Check all?`)) return; setCheckingAll(true); for (const item of items) { try { await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST' }); } catch (e) {} } setCheckingAll(false); };
   const copyToClipboard = (text) => { navigator.clipboard.writeText(text).then(() => alert("Copied!")); };
+
   const openHistory = async (item) => { setSelectedItem(item); try { const res = await fetch(`${API_URL}/history/${item.id}`); const json = await res.json(); setHistory(json.data.map(p => ({ date: new Date(p.date).toLocaleDateString(undefined, {month:'short', day:'numeric'}), price: p.price }))); } catch (err) { console.error(err); } };
-  const openImage = (e, item) => { e.stopPropagation(); setViewImageItem(item); };
   
+  // NEW: Open Image Modal (Fail-safe)
+  const openImage = (e, item) => {
+      e.stopPropagation(); 
+      // Open modal regardless, we handle missing images in the modal render
+      setViewImageItem(item);
+  };
+
+  // Helper to get the best available image
+  const getImageSrc = (item) => {
+      if (item.screenshot_path) return `${API_URL.replace('/api', '')}/screenshots/${item.screenshot_path}`;
+      return item.image_url;
+  };
+
   const getTrend = (c, p) => (!p || c === p) ? 'neutral' : (c < p ? 'down' : 'up');
   const renderPriceBox = (item) => {
       const trend = getTrend(item.current_price, item.previous_price);
@@ -54,11 +73,6 @@ function App() {
   const domains = [...new Set(items.map(i => getDomain(i.url)))].sort((a, b) => a.localeCompare(b));
   const uniqueDomains = ['ALL', ...domains];
   const filteredItems = filterDomain === 'ALL' ? items : items.filter(i => getDomain(i.url) === filterDomain);
-
-  const getImageSrc = (item) => {
-      if (item.screenshot_path) return `${API_URL.replace('/api', '')}/screenshots/${item.screenshot_path}`;
-      return item.image_url;
-  };
 
   return (
     <div className={`app-wrapper ${theme}`}>
@@ -72,6 +86,7 @@ function App() {
             </div>
         </div>
       </nav>
+
       <main className="main-content">
         <section className="controls-panel">
             <form onSubmit={handleAdd} className="add-bar">
@@ -83,6 +98,7 @@ function App() {
             </form>
             <div className="filter-bar"><label>Filter:</label><select onChange={(e) => setFilterDomain(e.target.value)} value={filterDomain} className="filter-select">{uniqueDomains.map(d => <option key={d} value={d}>{d}</option>)}</select></div>
         </section>
+
         <section className="items-grid">
             {filteredItems.map(item => (
                 <article key={item.id} className={`item-card trend-${getTrend(item.current_price, item.previous_price)}`}>
@@ -98,21 +114,53 @@ function App() {
                             <span className="badge">{item.date_added ? new Date(item.date_added).toLocaleDateString(undefined, {day:'2-digit', month:'short'}) : 'N/A'}</span>
                         </div>
                     </div>
+                    {/* NEW ACTION GRID LAYOUT */}
                     <div className="card-actions">
                         <button onClick={() => handleRefresh(item.id)} disabled={refreshingId === item.id} className="action-btn check">{refreshingId === item.id ? '...' : 'Check'}</button>
                         <a href={item.url} target="_blank" rel="noreferrer" className="action-btn visit">Visit</a>
+                        
+                        {/* New Snip Button */}
+                        <button onClick={(e) => openImage(e, item)} className="action-btn snip">Snip</button>
+                        
                         <button onClick={() => setEditingItem(item)} className="action-btn edit">Edit</button>
-                        <button onClick={() => handleDelete(item.id)} className="action-btn remove">Remove</button>
+                        
+                        {/* Full Width Remove */}
+                        <button onClick={() => handleDelete(item.id)} className="action-btn remove full-width">Remove</button>
                     </div>
                 </article>
             ))}
             {items.length === 0 && !loading && <div className="empty-state">No items yet. Add one above!</div>}
         </section>
       </main>
-      {/* Modals kept same as previous */}
+
+      {/* History Modal */}
       {selectedItem && (<div className="modal-backdrop" onClick={() => setSelectedItem(null)}><div className="modal-box" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>History</h3><button onClick={() => setSelectedItem(null)}>×</button></div><div className="modal-body graph-body"><ResponsiveContainer width="100%" height={300}><LineChart data={history}><XAxis dataKey="date" stroke="currentColor" fontSize={12} /><YAxis stroke="currentColor" /><Tooltip contentStyle={{backgroundColor: 'var(--bg-panel)', border:'none', color:'var(--text-main)'}} /><Line type="monotone" dataKey="price" stroke="var(--primary)" strokeWidth={3} dot={{r: 4}} /></LineChart></ResponsiveContainer></div></div></div>)}
+      
+      {/* Edit Modal */}
       {editingItem && (<div className="modal-backdrop" onClick={() => setEditingItem(null)}><div className="modal-box" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>Edit</h3><button onClick={() => setEditingItem(null)}>×</button></div><form onSubmit={handleUpdate} className="modal-body form-body"><div className="form-group"><label>Link</label><div className="input-group"><input value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} /><button type="button" onClick={() => copyToClipboard(editingItem.url)}>Copy</button></div></div><div className="form-group"><label>Retention</label><select value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}><option value="30">30 Days</option><option value="365">1 Year</option></select></div><button type="submit" className="save-btn">Save</button></form></div></div>)}
-      {viewImageItem && (<div className="modal-backdrop" onClick={() => setViewImageItem(null)}><div className="modal-box image-modal" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>Snip</h3><button onClick={() => setViewImageItem(null)}>×</button></div><div className="modal-body" style={{padding:0, display:'flex', justifyContent:'center', background:'#000'}}><img src={getImageSrc(viewImageItem)} alt="Snip" style={{maxWidth:'100%', maxHeight:'80vh', objectFit:'contain'}} /></div></div></div>)}
+      
+      {/* Image Modal */}
+      {viewImageItem && (
+        <div className="modal-backdrop" onClick={() => setViewImageItem(null)}>
+            <div className="modal-box image-modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-head">
+                    <h3>
+                        {viewImageItem.screenshot_path ? "Live Snapshot" : "Product Image"}
+                    </h3>
+                    <button onClick={() => setViewImageItem(null)}>×</button>
+                </div>
+                <div className="modal-body" style={{padding: 0, display: 'flex', justifyContent: 'center', backgroundColor: '#000'}}>
+                    {/* Show image if path exists, else show message */}
+                    <img 
+                        src={getImageSrc(viewImageItem)} 
+                        alt="Evidence" 
+                        style={{maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain'}} 
+                        onError={(e) => {e.target.style.display='none';}} 
+                    />
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }
