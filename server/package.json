@@ -14,6 +14,6 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "socket.io": "^4.7.2",
     "sqlite3": "^5.1.7",
-    "tesseract.js": "^5.0.3"
+    "tesseract.js": "^6.0.1"
   }
 }
