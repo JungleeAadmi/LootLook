@@ -22,6 +22,7 @@
   --btn-remove: #f87171;
   
   --arrow-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23f1f5f9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  
   --trend-down-border: #4ade80;
   --trend-down-bg: rgba(74, 222, 128, 0.05);
   --trend-up-border: #f87171;
@@ -51,12 +52,19 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: var(--font-main); background: var(--bg-app); color: var(--text-main); -webkit-font-smoothing: antialiased; }
+
 .app-wrapper { min-height: 100vh; display: flex; flex-direction: column; }
 .main-content { width: 100%; max-width: 1600px; margin: 0 auto; padding: 20px; padding-top: 90px; }
 
 /* --- HEADER --- */
-.navbar { position: fixed; top: 0; left: 0; right: 0; height: 70px; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); z-index: 100; display: flex; justify-content: center; }
+.navbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 70px;
+  background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border); z-index: 100;
+  display: flex; justify-content: center;
+}
 .colorful .navbar { background: rgba(255, 255, 255, 0.95); }
+
 .nav-content { width: 100%; max-width: 1600px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; }
 .brand { display: flex; align-items: center; gap: 12px; }
 .logo-box { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -104,24 +112,32 @@ h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit
 .badge { font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; background: var(--bg-app); color: var(--text-muted); font-weight: 600; }
 .domain-row { margin-top: 2px; }
 
-/* --- ACTIONS GRID (3x3 with Remove Full Width) --- */
-.card-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; border-top: 1px solid var(--border); }
-.action-btn { background: transparent; border: none; padding: 12px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); height: 48px; }
+/* --- ACTIONS GRID (3x2) --- */
+.card-actions { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr 1fr; /* 3 Columns */
+    grid-template-rows: auto auto; 
+    border-top: 1px solid var(--border); 
+}
+.action-btn { 
+    background: transparent; border: none; padding: 12px 0; font-weight: 700; font-size: 0.8rem; 
+    border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); 
+    cursor: pointer; display: flex; align-items: center; justify-content: center; text-decoration: none; transition: background 0.2s; height: 48px;
+}
+/* Grid Borders: No Right border on last column */
+.action-btn:nth-child(3), .action-btn:nth-child(6) { border-right: none; }
+/* No Bottom border on last row */
+.action-btn:nth-child(4), .action-btn:nth-child(5), .action-btn:nth-child(6) { border-bottom: none; }
+
 .action-btn:hover { background: var(--bg-app); }
 
-/* Row 1 */
-.action-btn.check { color: var(--btn-check); }
-.action-btn.graph { color: var(--btn-graph); }
-.action-btn.snip-btn { color: var(--btn-snip); border-right: none; } /* End of row */
-
-/* Row 2 */
-.action-btn.edit { color: var(--btn-edit); }
-.action-btn.visit { color: var(--btn-visit); } 
-/* Visit duplicated as Webpage */
-.action-btn.visit:nth-of-type(5) { color: var(--btn-visit); border-right: none; }
-
-/* Row 3 (Remove Full Width) */
-.action-btn.remove { grid-column: 1 / -1; border-right: none; border-bottom: none; color: var(--btn-remove); }
+/* Icon Colors */
+.check { color: var(--btn-check); }
+.graph { color: var(--btn-graph); }
+.snip-btn { color: var(--btn-snip); }
+.edit { color: var(--btn-edit); }
+.visit { color: var(--btn-visit); }
+.remove { color: var(--btn-remove); }
 
 /* --- MOBILE --- */
 @media (max-width: 768px) {
@@ -133,6 +149,7 @@ h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit
   .filter-select { max-width: none; flex: 1; } 
   .items-grid { grid-template-columns: 1fr; gap: 15px; } 
   .card-snip { height: 180px; } 
+  .action-btn { padding: 15px 0; font-size: 0.9rem; } 
 }
 
 /* --- MODAL --- */
