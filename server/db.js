@@ -38,7 +38,7 @@ function initDb() {
             FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE
         )`);
 
-        // Migrations
+        // Migration Logic (Safe to run every time)
         db.all("PRAGMA table_info(items)", (err, columns) => {
             if (err) return;
             const names = columns.map(c => c.name);

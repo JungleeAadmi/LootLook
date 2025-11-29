@@ -7,6 +7,8 @@ const Tesseract = require('tesseract.js');
 puppeteer.use(StealthPlugin());
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Ensure screenshot dir exists
 const screenshotDir = path.join(__dirname, 'screenshots');
 if (!fs.existsSync(screenshotDir)){ fs.mkdirSync(screenshotDir); }
 
@@ -29,18 +31,25 @@ async function scrapeProduct(url) {
         browser = await puppeteer.launch({
             headless: "new",
             args: [
-                '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-                '--window-size=1920,1080', '--disable-blink-features=AutomationControlled',
-                '--disable-features=IsolateOrigins,site-per-process', '--lang=en-US,en'
+                '--no-sandbox', 
+                '--disable-setuid-sandbox', 
+                '--disable-dev-shm-usage',
+                '--window-size=1920,1080',
+                '--disable-blink-features=AutomationControlled',
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--lang=en-US,en'
             ]
         });
 
         const page = await browser.newPage();
+        
+        // Stealth
         await page.emulateTimezone('Asia/Kolkata');
         await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
         await page.setViewport({ width: 1366, height: 768 });
 
+        // Navigate
         try { await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 }); } catch(e) {}
 
         // Auto-Scroll
@@ -58,8 +67,10 @@ async function scrapeProduct(url) {
         });
         await wait(2000);
 
+        // Capture Screenshot
         await page.screenshot({ path: filepath, type: 'jpeg', quality: 60, clip: { x: 0, y: 0, width: 1366, height: 1000 } });
 
+        // HTML Scrape
         let data = await page.evaluate(() => {
             let title = document.title;
             let image = "";
@@ -81,6 +92,7 @@ async function scrapeProduct(url) {
             return { title, image, price, currency };
         });
 
+        // OCR Fallback
         if (!data.price || data.price == 0) {
             const imageBuffer = fs.readFileSync(filepath);
             const ocrResult = await visualScrape(imageBuffer);
