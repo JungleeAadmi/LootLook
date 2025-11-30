@@ -21,21 +21,14 @@ const JWT_SECRET = "lootlook-super-secret-key-change-this";
 app.use(cors());
 app.use(express.json());
 
-// Serve Screenshots
 app.use('/screenshots', express.static(path.join(__dirname, 'screenshots')));
 const screenshotDir = path.join(__dirname, 'screenshots');
 if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir);
 
-// --- MIDDLEWARE: AUTHENTICATION (UPDATED) ---
 const authenticateToken = (req, res, next) => {
-    // Check Header OR Query Param (for CSV download)
     const authHeader = req.headers['authorization'];
     let token = authHeader && authHeader.split(' ')[1];
-    
-    if (!token && req.query.token) {
-        token = req.query.token;
-    }
-
+    if (!token && req.query.token) token = req.query.token;
     if (token == null) return res.sendStatus(401);
 
     jwt.verify(token, JWT_SECRET, (err, user) => {
@@ -45,11 +38,9 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// --- SOCKET.IO ---
-io.on('connection', (socket) => { /* ... */ });
+io.on('connection', (socket) => { });
 const broadcastUpdate = () => { io.emit('REFRESH_DATA'); };
 
-// --- URL CLEANER ---
 function cleanUrl(rawUrl) {
     try {
         if(rawUrl.includes('amzn.in') || rawUrl.includes('dl.flipkart') || rawUrl.includes('sharein')) return rawUrl;
@@ -64,7 +55,7 @@ function cleanUrl(rawUrl) {
     } catch (e) { return rawUrl; }
 }
 
-// --- AUTH ROUTES ---
+// --- ROUTES ---
 app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -81,16 +72,12 @@ app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     db.get(`SELECT * FROM users WHERE username = ?`, [username], async (err, user) => {
         if (err || !user) return res.status(400).json({ error: "User not found" });
-        
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) return res.status(403).json({ error: "Invalid password" });
-
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET);
         res.json({ token, username: user.username });
     });
 });
-
-// --- PROTECTED API ROUTES ---
 
 app.get('/api/items', authenticateToken, (req, res) => {
     db.all("SELECT * FROM items WHERE user_id = ? ORDER BY id DESC", [req.user.id], (err, rows) => {
@@ -103,15 +90,11 @@ app.post('/api/items', authenticateToken, async (req, res) => {
     const { url, retention } = req.body;
     const cleanedUrl = cleanUrl(url);
     const data = await scrapeProduct(cleanedUrl);
-    
     if (!data) return res.status(500).json({ error: "Could not scrape link." });
 
     const now = new Date().toISOString();
     const sql = `INSERT INTO items (user_id, url, name, image_url, screenshot_path, current_price, previous_price, currency, retention_days, last_checked, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const params = [
-        req.user.id, cleanedUrl, data.title, data.image, data.screenshot, 
-        data.price, data.price, data.currency || '$', retention || 30, now, now
-    ];
+    const params = [req.user.id, cleanedUrl, data.title, data.image, data.screenshot, data.price, data.price, data.currency || '$', retention || 30, now, now];
 
     db.run(sql, params, function(err) {
         if (err) return res.status(400).json({ error: err.message });
@@ -188,8 +171,8 @@ app.get('/api/export', authenticateToken, (req, res) => {
     });
 });
 
-// --- AUTOMATION ---
-cron.schedule('0 */6 * * *', () => {
+// --- AUTOMATION (8 HOURS) ---
+cron.schedule('0 */8 * * *', () => {
     db.all("SELECT * FROM items", [], async (err, rows) => {
         if (err) return;
         let didUpdate = false;

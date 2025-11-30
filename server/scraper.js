@@ -34,7 +34,7 @@ async function scrapeProduct(url) {
                 '--no-sandbox', 
                 '--disable-setuid-sandbox', 
                 '--disable-dev-shm-usage',
-                '--window-size=1920,1080',
+                '--window-size=1080,1920', // Requested Resolution
                 '--disable-blink-features=AutomationControlled',
                 '--disable-features=IsolateOrigins,site-per-process',
                 '--lang=en-US,en'
@@ -43,11 +43,13 @@ async function scrapeProduct(url) {
 
         const page = await browser.newPage();
         
-        // Stealth
+        // Stealth Headers
         await page.emulateTimezone('Asia/Kolkata');
         await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
-        await page.setViewport({ width: 1366, height: 768 });
+        
+        // 2. Change Resolution
+        await page.setViewport({ width: 1080, height: 1920 });
 
         // Navigate
         try { await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 }); } catch(e) {}
@@ -65,12 +67,22 @@ async function scrapeProduct(url) {
                 }, 100);
             });
         });
-        await wait(2000);
+        
+        // 1. Wait 3 Seconds
+        await wait(3000);
 
-        // Capture Screenshot
-        await page.screenshot({ path: filepath, type: 'jpeg', quality: 60, clip: { x: 0, y: 0, width: 1366, height: 1000 } });
+        // 3. Fix Broken Currency Fonts (Inject standard font)
+        await page.evaluate(() => {
+            const style = document.createElement('style');
+            style.innerHTML = `* { font-family: Arial, Helvetica, sans-serif !important; }`; 
+            document.head.appendChild(style);
+        });
+        // Small wait for font render
+        await wait(500);
 
-        // HTML Scrape
+        // Capture Screenshot (Top 1500px to get more context)
+        await page.screenshot({ path: filepath, type: 'jpeg', quality: 60, clip: { x: 0, y: 0, width: 1080, height: 1500 } });
+
         let data = await page.evaluate(() => {
             let title = document.title;
             let image = "";
@@ -92,7 +104,6 @@ async function scrapeProduct(url) {
             return { title, image, price, currency };
         });
 
-        // OCR Fallback
         if (!data.price || data.price == 0) {
             const imageBuffer = fs.readFileSync(filepath);
             const ocrResult = await visualScrape(imageBuffer);
