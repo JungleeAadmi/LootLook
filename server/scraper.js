@@ -41,7 +41,7 @@ async function scrapeProduct(url) {
         await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
         
         // Larger Viewport for Desktop-like rendering
-        await page.setViewport({ width: 1366, height: 1200 });
+        await page.setViewport({ width: 1366, height: 3840 });
 
         // Navigate with strict wait
         try { 
