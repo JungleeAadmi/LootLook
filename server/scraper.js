@@ -83,7 +83,7 @@ async function scrapeProduct(url) {
             path: filepath, 
             type: 'jpeg', 
             quality: 70, 
-            clip: { x: 0, y: 0, width: 1366, height: 1000 } // Capture top 1000px
+            clip: { x: 0, y: 0, width: 1366, height: 3840 } // Capture top 1000px
         });
 
         let data = await page.evaluate(() => {
