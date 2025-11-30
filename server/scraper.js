@@ -41,7 +41,7 @@ async function scrapeProduct(url) {
         await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
         
         // Larger Viewport for Desktop-like rendering
-        await page.setViewport({ width: 1366, height: 3840 });
+        await page.setViewport({ width: 1366, height: 1920 });
 
         // Navigate with strict wait
         try { 
@@ -83,7 +83,7 @@ async function scrapeProduct(url) {
             path: filepath, 
             type: 'jpeg', 
             quality: 70, 
-            clip: { x: 0, y: 0, width: 1366, height: 3840 } // Capture top 1000px
+            clip: { x: 0, y: 0, width: 1366, height: 1920 } // Capture top 1000px
         });
 
         let data = await page.evaluate(() => {
