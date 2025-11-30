@@ -26,10 +26,16 @@ app.use('/screenshots', express.static(path.join(__dirname, 'screenshots')));
 const screenshotDir = path.join(__dirname, 'screenshots');
 if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir);
 
-// --- MIDDLEWARE: AUTHENTICATION ---
+// --- MIDDLEWARE: AUTHENTICATION (UPDATED) ---
 const authenticateToken = (req, res, next) => {
+    // Check Header OR Query Param (for CSV download)
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    let token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token && req.query.token) {
+        token = req.query.token;
+    }
+
     if (token == null) return res.sendStatus(401);
 
     jwt.verify(token, JWT_SECRET, (err, user) => {
@@ -59,7 +65,6 @@ function cleanUrl(rawUrl) {
 }
 
 // --- AUTH ROUTES ---
-
 app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -88,7 +93,6 @@ app.post('/api/login', (req, res) => {
 // --- PROTECTED API ROUTES ---
 
 app.get('/api/items', authenticateToken, (req, res) => {
-    // Only get items for THIS user
     db.all("SELECT * FROM items WHERE user_id = ? ORDER BY id DESC", [req.user.id], (err, rows) => {
         if (err) return res.status(400).json({ error: err.message });
         res.json({ data: rows });
@@ -105,8 +109,7 @@ app.post('/api/items', authenticateToken, async (req, res) => {
     const now = new Date().toISOString();
     const sql = `INSERT INTO items (user_id, url, name, image_url, screenshot_path, current_price, previous_price, currency, retention_days, last_checked, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     const params = [
-        req.user.id, // Bind to user
-        cleanedUrl, data.title, data.image, data.screenshot, 
+        req.user.id, cleanedUrl, data.title, data.image, data.screenshot, 
         data.price, data.price, data.currency || '$', retention || 30, now, now
     ];
 
@@ -120,7 +123,6 @@ app.post('/api/items', authenticateToken, async (req, res) => {
 
 app.put('/api/items/:id', authenticateToken, (req, res) => {
     const { url, retention } = req.body;
-    // Ensure user owns item
     db.run("UPDATE items SET url = ?, retention_days = ? WHERE id = ? AND user_id = ?", 
         [cleanUrl(url), retention, req.params.id, req.user.id], 
         function(err) {
@@ -133,10 +135,8 @@ app.put('/api/items/:id', authenticateToken, (req, res) => {
 });
 
 app.delete('/api/items/:id', authenticateToken, (req, res) => {
-    // Verify ownership before delete
     db.get("SELECT screenshot_path FROM items WHERE id = ? AND user_id = ?", [req.params.id, req.user.id], (err, row) => {
         if (!row) return res.status(403).json({ error: "Not authorized or not found" });
-        
         if (row.screenshot_path) {
             const filePath = path.join(__dirname, 'screenshots', row.screenshot_path);
             if(fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -149,10 +149,8 @@ app.delete('/api/items/:id', authenticateToken, (req, res) => {
 });
 
 app.get('/api/history/:id', authenticateToken, (req, res) => {
-    // Verify ownership
     db.get("SELECT id FROM items WHERE id = ? AND user_id = ?", [req.params.id, req.user.id], (err, row) => {
         if(!row) return res.status(403).json({ error: "Access Denied" });
-        
         db.all("SELECT * FROM prices WHERE item_id = ? ORDER BY date ASC", [req.params.id], (err, rows) => {
             res.json({ data: rows });
         });
@@ -178,23 +176,19 @@ app.post('/api/refresh/:id', authenticateToken, (req, res) => {
     });
 });
 
-// --- DATA EXPORT (CSV) ---
 app.get('/api/export', authenticateToken, (req, res) => {
     db.all("SELECT * FROM items WHERE user_id = ?", [req.user.id], (err, items) => {
         if (err) return res.status(500).send("Error fetching data");
-        
         const fields = ['name', 'url', 'current_price', 'currency', 'date_added'];
         const json2csvParser = new Parser({ fields });
         const csv = json2csvParser.parse(items);
-        
         res.header('Content-Type', 'text/csv');
         res.attachment('lootlook_export.csv');
         return res.send(csv);
     });
 });
 
-
-// --- AUTOMATION (Runs for ALL users) ---
+// --- AUTOMATION ---
 cron.schedule('0 */6 * * *', () => {
     db.all("SELECT * FROM items", [], async (err, rows) => {
         if (err) return;
@@ -225,5 +219,4 @@ cron.schedule('0 0 * * *', () => {
 
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => { res.sendFile(path.join(__dirname, '../client/dist/index.html')); });
-
 server.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
