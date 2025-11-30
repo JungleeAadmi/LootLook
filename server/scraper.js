@@ -7,8 +7,6 @@ const Tesseract = require('tesseract.js');
 puppeteer.use(StealthPlugin());
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
-
-// Ensure screenshot dir exists
 const screenshotDir = path.join(__dirname, 'screenshots');
 if (!fs.existsSync(screenshotDir)){ fs.mkdirSync(screenshotDir); }
 
@@ -31,30 +29,27 @@ async function scrapeProduct(url) {
         browser = await puppeteer.launch({
             headless: "new",
             args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox', 
-                '--disable-dev-shm-usage',
-                '--window-size=1080,1920', // Requested Resolution
-                '--disable-blink-features=AutomationControlled',
-                '--disable-features=IsolateOrigins,site-per-process',
-                '--lang=en-US,en'
+                '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+                '--window-size=1920,1080', '--disable-blink-features=AutomationControlled',
+                '--disable-features=IsolateOrigins,site-per-process', '--lang=en-US,en'
             ]
         });
 
         const page = await browser.newPage();
-        
-        // Stealth Headers
         await page.emulateTimezone('Asia/Kolkata');
         await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
         
-        // 2. Change Resolution
-        await page.setViewport({ width: 1080, height: 1920 });
+        // Larger Viewport for Desktop-like rendering
+        await page.setViewport({ width: 1366, height: 1200 });
 
-        // Navigate
-        try { await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 }); } catch(e) {}
+        // Navigate with strict wait
+        try { 
+            await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 }); 
+        } catch(e) { console.log("Navigation timeout, continuing..."); }
 
-        // Auto-Scroll
+        // --- INTERACTIVE CLEANUP ---
+        // 1. Auto-Scroll (Trigger lazy loads)
         await page.evaluate(async () => {
             await new Promise((resolve) => {
                 let totalHeight = 0;
@@ -68,20 +63,28 @@ async function scrapeProduct(url) {
             });
         });
         
-        // 1. Wait 3 Seconds
-        await wait(3000);
+        // 2. Wait for settling
+        await wait(3000); 
 
-        // 3. Fix Broken Currency Fonts (Inject standard font)
+        // 3. Force Standard Font & Hide Popups
         await page.evaluate(() => {
+            // Fix Currency Symbols
             const style = document.createElement('style');
-            style.innerHTML = `* { font-family: Arial, Helvetica, sans-serif !important; }`; 
+            style.innerHTML = `
+                * { font-family: Arial, Helvetica, sans-serif !important; }
+                #cookie-banner, .cookie-consent, .popup, .modal, [id*="popup"], [class*="popup"] { display: none !important; }
+            `; 
             document.head.appendChild(style);
         });
-        // Small wait for font render
-        await wait(500);
+        await wait(1000); // Wait for font switch
 
-        // Capture Screenshot (Top 1500px to get more context)
-        await page.screenshot({ path: filepath, type: 'jpeg', quality: 60, clip: { x: 0, y: 0, width: 1080, height: 1500 } });
+        // --- CAPTURE SCREENSHOT ---
+        await page.screenshot({ 
+            path: filepath, 
+            type: 'jpeg', 
+            quality: 70, 
+            clip: { x: 0, y: 0, width: 1366, height: 1000 } // Capture top 1000px
+        });
 
         let data = await page.evaluate(() => {
             let title = document.title;
