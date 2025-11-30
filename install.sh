@@ -68,10 +68,9 @@ sudo npm install -g pm2 >/dev/null 2>&1
 # 5. Application Build
 echo ">>> [5/6] Building Application..."
 echo "--- Installing Server Dependencies (Socket.io, Tesseract, Puppeteer)..."
-cd "$APP_DIR/server" && npm install >/dev/null 2>&1
+cd "$APP_DIR/server" && npm install
 echo "--- Installing Client Dependencies (including Socket.io-client) & Building..."
-cd "$APP_DIR/client" && npm install >/dev/null 2>&1
-npm run build >/dev/null 2>&1
+cd "$APP_DIR/client" && npm install && npm run build
 
 # 6. Database & Startup
 echo ">>> [6/6] Finalizing..."
