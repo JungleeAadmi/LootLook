@@ -121,6 +121,12 @@ function App() {
       return ( <div className="price-box"><span className="currency">{item.currency}</span><span className="amount">{item.current_price.toLocaleString()}</span>{hasChange && (<span className={`prev-price ${trend}`}>{trend === 'down' ? 'Was' : 'Low'} {item.previous_price.toLocaleString()}</span>)}</div> );
   };
 
+  // NEW: Helper to format dates
+  const formatDate = (dateString) => {
+      if (!dateString) return 'N/A';
+      return new Date(dateString).toLocaleDateString(undefined, {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
+  };
+
   const graphStats = useMemo(() => { if(history.length === 0) return { min: 0, max: 0 }; const prices = history.map(h => h.price); return { min: Math.min(...prices), max: Math.max(...prices) }; }, [history]);
   const domains = [...new Set(items.map(i => getDomain(i.url)))].sort((a, b) => a.localeCompare(b));
   const uniqueDomains = ['ALL', ...domains];
@@ -130,7 +136,6 @@ function App() {
   if (!token) {
       return (
         <div className={`app-wrapper ${theme} auth-screen`}>
-            <button className="theme-float" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
             <div className="auth-box">
                 <div className="brand-center">
                     <div className="logo-box"><img src="/logo.svg" alt="Logo" className="logo-icon" /></div>
@@ -156,17 +161,14 @@ function App() {
                 <span className="brand-name">LootLook</span>
             </div>
             <div className="nav-actions">
-                {/* ALWAYS VISIBLE SYNC */}
                 <button className={`nav-btn ${globalSync ? 'spin' : ''}`} onClick={fetchItems} title="Sync">
                     <Icons.Sync />
                 </button>
 
-                {/* HAMBURGER MENU */}
                 <button className="nav-btn" onClick={() => setMenuOpen(!menuOpen)}>
                     {menuOpen ? <Icons.Close /> : <Icons.Menu />}
                 </button>
 
-                {/* DROPDOWN */}
                 {menuOpen && (
                     <div className="menu-dropdown">
                         <div className="menu-item" onClick={handleCheckAll}>⚡ Check All</div>
@@ -201,7 +203,12 @@ function App() {
                         <h3 title={item.name}>{item.name}</h3>
                         <div className="meta-row">
                             {renderPriceBox(item)}
-                            <span className="date-added">Added: {item.date_added ? new Date(item.date_added).toLocaleDateString(undefined, {day:'2-digit', month:'short'}) : 'N/A'}</span>
+                            {/* UPDATED: Added & Last Checked */}
+                            <div className="timestamps">
+                                <span className="date-added">Added: {item.date_added ? new Date(item.date_added).toLocaleDateString(undefined, {day:'2-digit', month:'short'}) : 'N/A'}</span>
+                                <span className="separator">|</span>
+                                <span className="date-checked">Checked: {formatDate(item.last_checked)}</span>
+                            </div>
                         </div>
                         <div className="domain-row"><span className="badge">{getDomain(item.url)}</span></div>
                     </div>
@@ -218,7 +225,6 @@ function App() {
             {items.length === 0 && !loading && <div className="empty-state">No items yet. Add one above!</div>}
         </section>
       </main>
-      {/* Modals kept same as previous */}
       {selectedItem && (<div className="modal-backdrop" onClick={() => setSelectedItem(null)}><div className="modal-box" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>History</h3><button onClick={() => setSelectedItem(null)}>×</button></div><div className="modal-body graph-body"><ResponsiveContainer width="100%" height={300}><LineChart data={history} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}><XAxis dataKey="date" stroke="currentColor" fontSize={12} /><YAxis stroke="currentColor" domain={['auto', 'auto']} /><Tooltip contentStyle={{backgroundColor: 'var(--bg-panel)', border:'none', color:'var(--text-main)'}} /><Line type="monotone" dataKey="price" stroke="var(--primary)" strokeWidth={3} dot={{r: 4, fill:'#38bdf8'}} activeDot={{r: 6}} /><ReferenceLine y={graphStats.min} stroke="var(--accent-green)" strokeDasharray="3 3"><Label value={`Min: ${graphStats.min}`} position="insideBottomRight" fill="var(--accent-green)" fontSize={10} /></ReferenceLine><ReferenceLine y={graphStats.max} stroke="var(--danger)" strokeDasharray="3 3"><Label value={`Max: ${graphStats.max}`} position="insideTopRight" fill="var(--danger)" fontSize={10} /></ReferenceLine></LineChart></ResponsiveContainer></div></div></div>)}
       {editingItem && (<div className="modal-backdrop" onClick={() => setEditingItem(null)}><div className="modal-box" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>Edit</h3><button onClick={() => setEditingItem(null)}>×</button></div><form onSubmit={handleUpdate} className="modal-body form-body"><div className="form-group"><label>Link</label><div className="input-group"><input value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} /><button type="button" className="copy-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link"><Icons.Copy /></button></div></div><div className="form-group"><label>Retention</label><select value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}><option value="30">30 Days</option><option value="365">1 Year</option></select></div><button type="submit" className="save-btn">Save</button></form></div></div>)}
       {viewImageItem && (<div className="modal-backdrop" onClick={() => setViewImageItem(null)}><div className="modal-box image-modal" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>Snip</h3><button onClick={() => setViewImageItem(null)}>×</button></div><div className="modal-body" style={{padding:0, display:'flex', justifyContent:'center', background:'#000'}}><img src={getImageSrc(viewImageItem)} alt="Snip" style={{maxWidth:'100%', maxHeight:'80vh', objectFit:'contain'}} /></div></div></div>)}
