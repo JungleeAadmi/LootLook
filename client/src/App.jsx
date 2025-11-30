@@ -45,17 +45,14 @@ function App() {
   useEffect(() => { 
       document.body.className = theme;
       if (token) {
-        socket = io({ auth: { token } }); // Connect socket with token? (Optional, server needs update to verify socket auth, skipping for simplicity)
-        // Re-initialize plain socket
+        socket = io({ auth: { token } }); 
         if (!socket.connected) socket.connect();
-        
         fetchItems();
         socket.on('REFRESH_DATA', () => { fetchItems(); });
       }
       return () => { if(socket) socket.off('REFRESH_DATA'); };
   }, [theme, token]);
 
-  // --- AUTH HELPERS ---
   const handleAuth = async (e) => {
       e.preventDefault();
       try {
@@ -87,7 +84,6 @@ function App() {
       setItems([]);
   };
 
-  // --- APP LOGIC ---
   const getDomain = (url) => { try { return new URL(url).hostname.replace('www.', ''); } catch (e) { return 'unknown'; } };
   const toggleTheme = () => { const newTheme = theme === 'dark' ? 'colorful' : 'dark'; setTheme(newTheme); localStorage.setItem('lootlook-theme', newTheme); };
   
@@ -125,7 +121,7 @@ function App() {
   const handleUpdate = async (e) => { e.preventDefault(); try { await fetch(`${API_URL}/items/${editingItem.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ url: editingItem.url, retention: parseInt(editingItem.retention_days) }) }); setEditingItem(null); } catch (err) { alert("Failed"); } };
   const handleRefresh = async (id) => { setRefreshingId(id); try { await fetch(`${API_URL}/refresh/${id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); } catch(err) { alert("Network error"); } setRefreshingId(null); };
   const handleCheckAll = async () => { if (checkingAll) return; if (!confirm(`Check all?`)) return; setCheckingAll(true); for (const item of items) { try { await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); } catch (e) {} } setCheckingAll(false); };
-  const handleExport = () => { window.open(`${API_URL}/export?token=${token}`, '_blank'); }; // Token passed via query for direct link
+  const handleExport = () => { window.open(`${API_URL}/export?token=${token}`, '_blank'); }; 
 
   const copyToClipboard = (text) => { navigator.clipboard.writeText(text).then(() => alert("Copied!")); };
   const openHistory = async (item) => { setSelectedItem(item); try { const res = await fetch(`${API_URL}/history/${item.id}`, { headers: { 'Authorization': `Bearer ${token}` } }); const json = await res.json(); setHistory(json.data.map(p => ({ date: new Date(p.date).toLocaleDateString(undefined, {month:'short', day:'numeric'}), price: p.price }))); } catch (err) { console.error(err); } };
@@ -144,7 +140,6 @@ function App() {
   const filteredItems = filterDomain === 'ALL' ? items : items.filter(i => getDomain(i.url) === filterDomain);
   const getImageSrc = (item) => { if (item.screenshot_path) return `${API_URL.replace('/api', '')}/screenshots/${item.screenshot_path}`; return item.image_url; };
 
-  // --- AUTH SCREEN ---
   if (!token) {
       return (
         <div className={`app-wrapper ${theme} auth-screen`}>
@@ -155,38 +150,17 @@ function App() {
                 </div>
                 <h2>{authMode === 'login' ? 'Welcome Back' : 'Create Account'}</h2>
                 <form onSubmit={handleAuth}>
-                    <input 
-                        className="main-input full-width" 
-                        placeholder="Username" 
-                        value={authInput.username}
-                        onChange={e => setAuthInput({...authInput, username: e.target.value})}
-                        required
-                    />
-                    <input 
-                        className="main-input full-width" 
-                        placeholder="Password" 
-                        type="password"
-                        value={authInput.password}
-                        onChange={e => setAuthInput({...authInput, password: e.target.value})}
-                        required
-                    />
-                    <button type="submit" className="primary-btn full-width">
-                        {authMode === 'login' ? 'Login' : 'Sign Up'}
-                    </button>
+                    <input className="main-input full-width" placeholder="Username" value={authInput.username} onChange={e => setAuthInput({...authInput, username: e.target.value})} required />
+                    <input className="main-input full-width" placeholder="Password" type="password" value={authInput.password} onChange={e => setAuthInput({...authInput, password: e.target.value})} required />
+                    <button type="submit" className="primary-btn full-width">{authMode === 'login' ? 'Login' : 'Sign Up'}</button>
                 </form>
-                <p className="auth-switch">
-                    {authMode === 'login' ? "Don't have an account?" : "Already have an account?"} 
-                    <span onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>
-                        {authMode === 'login' ? ' Sign Up' : ' Login'}
-                    </span>
-                </p>
+                <p className="auth-switch">{authMode === 'login' ? "Don't have an account?" : "Already have an account?"} <span onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>{authMode === 'login' ? ' Sign Up' : ' Login'}</span></p>
                 <button className="nav-btn theme-btn auth-theme" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
             </div>
         </div>
       );
   }
 
-  // --- MAIN APP ---
   return (
     <div className={`app-wrapper ${theme}`}>
       <nav className="navbar">
@@ -195,13 +169,8 @@ function App() {
             <div className="nav-actions">
                 <button className={`nav-btn ${checkingAll ? 'pulse' : ''}`} onClick={handleCheckAll} title="Check All">⚡</button>
                 <button className={`nav-btn ${globalSync ? 'spin' : ''}`} onClick={fetchItems} title="Sync">↻</button>
-                
-                {/* EXPORT BUTTON */}
-                <button className="nav-btn" onClick={() => window.location.href = `${API_URL}/export?token=${token}`} title="Export CSV"><Icons.Export /></button>
-                
+                <button className="nav-btn" onClick={handleExport} title="Export CSV"><Icons.Export /></button>
                 <button className="nav-btn theme-btn" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
-                
-                {/* LOGOUT BUTTON */}
                 <button className="nav-btn logout-btn" onClick={logout} title="Logout"><Icons.Logout /></button>
             </div>
         </div>
@@ -245,7 +214,6 @@ function App() {
             {items.length === 0 && !loading && <div className="empty-state">No items yet. Add one above!</div>}
         </section>
       </main>
-      {/* Modals kept same */}
       {selectedItem && (<div className="modal-backdrop" onClick={() => setSelectedItem(null)}><div className="modal-box" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>History</h3><button onClick={() => setSelectedItem(null)}>×</button></div><div className="modal-body graph-body"><ResponsiveContainer width="100%" height={300}><LineChart data={history} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}><XAxis dataKey="date" stroke="currentColor" fontSize={12} /><YAxis stroke="currentColor" domain={['auto', 'auto']} /><Tooltip contentStyle={{backgroundColor: 'var(--bg-panel)', border:'none', color:'var(--text-main)'}} /><Line type="monotone" dataKey="price" stroke="var(--primary)" strokeWidth={3} dot={{r: 4, fill:'#38bdf8'}} activeDot={{r: 6}} /><ReferenceLine y={graphStats.min} stroke="var(--accent-green)" strokeDasharray="3 3"><Label value={`Min: ${graphStats.min}`} position="insideBottomRight" fill="var(--accent-green)" fontSize={10} /></ReferenceLine><ReferenceLine y={graphStats.max} stroke="var(--danger)" strokeDasharray="3 3"><Label value={`Max: ${graphStats.max}`} position="insideTopRight" fill="var(--danger)" fontSize={10} /></ReferenceLine></LineChart></ResponsiveContainer></div></div></div>)}
       {editingItem && (<div className="modal-backdrop" onClick={() => setEditingItem(null)}><div className="modal-box" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>Edit</h3><button onClick={() => setEditingItem(null)}>×</button></div><form onSubmit={handleUpdate} className="modal-body form-body"><div className="form-group"><label>Link</label><div className="input-group"><input value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} /><button type="button" className="copy-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link"><Icons.Copy /></button></div></div><div className="form-group"><label>Retention</label><select value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}><option value="30">30 Days</option><option value="365">1 Year</option></select></div><button type="submit" className="save-btn">Save</button></form></div></div>)}
       {viewImageItem && (<div className="modal-backdrop" onClick={() => setViewImageItem(null)}><div className="modal-box image-modal" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>Snip</h3><button onClick={() => setViewImageItem(null)}>×</button></div><div className="modal-body" style={{padding:0, display:'flex', justifyContent:'center', background:'#000'}}><img src={getImageSrc(viewImageItem)} alt="Snip" style={{maxWidth:'100%', maxHeight:'80vh', objectFit:'contain'}} /></div></div></div>)}
