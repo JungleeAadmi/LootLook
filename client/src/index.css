@@ -64,12 +64,12 @@ body { font-family: var(--font-main); background: var(--bg-app); color: var(--te
 .colorful .navbar { background: rgba(255, 255, 255, 0.95); }
 .nav-content { width: 100%; max-width: 1600px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; }
 
-/* FIX: Brand Row Layout - ensure logo and text are side-by-side */
+/* FIX: Brand Row Layout */
 .brand { display: flex; flex-direction: row; align-items: center; gap: 12px; } 
 
 .logo-box { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .logo-icon { width: 100%; height: 100%; object-fit: contain; max-width: 40px; }
-h1 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin: 0; margin-top: -2px; } /* slight adjustment to align with logo */
+h1 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin: 0; margin-top: -5px; }
 
 .nav-actions { display: flex; gap: 10px; align-items: center; position: relative; }
 .nav-btn { height: 40px; width: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-panel); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 1.2rem; }
@@ -173,8 +173,8 @@ h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit
   .auth-box h2 { display: none; }
   
   .brand-center { margin-bottom: 40px; }
-  .brand-center .logo-box { width: 100px; height: 100px; margin-bottom: 20px; background: transparent; }
-  .brand-center .logo-icon { width: 100px; height: 100px; max-width: none; }
+  .brand-center .logo-box { width: 80px; height: 80px; margin-bottom: 10px; background: transparent; }
+  .brand-center .logo-icon { width: 80px; height: 80px; max-width: none; }
   .brand-center h1 { font-size: 3rem; margin-top: 10px; }
   
   .add-bar { flex-direction: column; }
