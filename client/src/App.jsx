@@ -18,13 +18,13 @@ const Icons = {
   Web: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>,
   Visit: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>,
   Remove: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
-  Copy: () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>,
+  Copy: () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>,
 };
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('lootlook-token'));
   const [username, setUsername] = useState(localStorage.getItem('lootlook-user'));
-  const [authMode, setAuthMode] = useState('login');
+  const [authMode, setAuthMode] = useState('login'); 
   const [authInput, setAuthInput] = useState({ username: '', password: '' });
 
   const [items, setItems] = useState([]);
@@ -128,6 +128,7 @@ function App() {
   if (!token) {
       return (
         <div className={`app-wrapper ${theme} auth-screen`}>
+            <button className="theme-float" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
             <div className="auth-box">
                 <div className="brand-center">
                     <div className="logo-box"><img src="/logo.svg" alt="Logo" className="logo-icon" /></div>
@@ -181,7 +182,7 @@ function App() {
             <form onSubmit={handleAdd} className="add-bar">
                 <input type="url" placeholder="Paste product link here..." value={url} onChange={(e) => setUrl(e.target.value)} required className="main-input" />
                 <div className="add-actions">
-                    <select value={retention} onChange={(e) => setRetention(e.target.value)} className="main-select"><option value="30">30 Days</option><option value="365">1 Year</option></select>
+                    <select value={retention} onChange={(e) => setRetention(e.target.value)} className="main-select"><option value="30">30 Days</option><option value="90">90 Days</option><option value="365">1 Year</option></select>
                     <button type="submit" disabled={loading} className="primary-btn">{loading ? 'Adding...' : 'Track'}</button>
                 </div>
             </form>
