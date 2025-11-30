@@ -30,7 +30,8 @@ async function scrapeProduct(url) {
             headless: "new",
             args: [
                 '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-                '--window-size=1920,1080', '--disable-blink-features=AutomationControlled',
+                '--window-size=1080,1920', // Updated Resolution
+                '--disable-blink-features=AutomationControlled',
                 '--disable-features=IsolateOrigins,site-per-process', '--lang=en-US,en'
             ]
         });
@@ -40,16 +41,12 @@ async function scrapeProduct(url) {
         await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
         
-        // Larger Viewport for Desktop-like rendering
-        await page.setViewport({ width: 1366, height: 1920 });
+        // 2. Set Mobile/Vertical Resolution
+        await page.setViewport({ width: 1080, height: 1920 });
 
-        // Navigate with strict wait
-        try { 
-            await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 }); 
-        } catch(e) { console.log("Navigation timeout, continuing..."); }
+        try { await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 }); } catch(e) {}
 
-        // --- INTERACTIVE CLEANUP ---
-        // 1. Auto-Scroll (Trigger lazy loads)
+        // Auto-Scroll
         await page.evaluate(async () => {
             await new Promise((resolve) => {
                 let totalHeight = 0;
@@ -58,32 +55,28 @@ async function scrapeProduct(url) {
                     const scrollHeight = document.body.scrollHeight;
                     window.scrollBy(0, distance);
                     totalHeight += distance;
-                    if(totalHeight >= scrollHeight || totalHeight > 2500){ clearInterval(timer); resolve(); }
+                    if(totalHeight >= 2500){ clearInterval(timer); resolve(); }
                 }, 100);
             });
         });
-        
-        // 2. Wait for settling
-        await wait(3000); 
 
-        // 3. Force Standard Font & Hide Popups
+        // 1. Wait 3 Seconds for load completion
+        await wait(3000);
+
+        // 3. FONT FIX: Inject standard font to fix Box/Smiley symbols
         await page.evaluate(() => {
-            // Fix Currency Symbols
             const style = document.createElement('style');
-            style.innerHTML = `
-                * { font-family: Arial, Helvetica, sans-serif !important; }
-                #cookie-banner, .cookie-consent, .popup, .modal, [id*="popup"], [class*="popup"] { display: none !important; }
-            `; 
+            style.innerHTML = `* { font-family: Arial, Helvetica, sans-serif !important; }`; 
             document.head.appendChild(style);
         });
-        await wait(1000); // Wait for font switch
+        await wait(500); // Short wait for font render
 
-        // --- CAPTURE SCREENSHOT ---
+        // Capture Screenshot
         await page.screenshot({ 
             path: filepath, 
             type: 'jpeg', 
-            quality: 70, 
-            clip: { x: 0, y: 0, width: 1366, height: 1920 } // Capture top 1000px
+            quality: 65, 
+            clip: { x: 0, y: 0, width: 1080, height: 1920 } // Capture top 1200px
         });
 
         let data = await page.evaluate(() => {
