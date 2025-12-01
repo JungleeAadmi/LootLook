@@ -1,37 +1,42 @@
-/* ... [Keep all previous CSS variables] ... */
+/* ... [Keep Previous CSS] ... */
+/* Ensure this matches the latest "Gold Master" CSS I provided which had the 3x2 grid and mobile stack */
+/* --- THEME VARIABLES --- */
 :root {
   color-scheme: dark;
   --font-main: 'Nunito', sans-serif;
-  /* ... colors ... */
-  --bg-app: #0f172a;
-  --bg-panel: #1e293b;
-  --bg-input: #020617;
-  --border: #334155;
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --primary: #38bdf8;
-  --secondary: #818cf8;
-  --accent-green: #4ade80;
-  --danger: #f87171;
+  
+  /* TRUE DARK THEME */
+  --bg-app: #000000;
+  --bg-panel: #0a0a0a;
+  --bg-input: #121212;
+  --border: #333333;
+  
+  --text-main: #ffffff;
+  --text-muted: #a1a1aa;
+  
+  --primary: #3b82f6;
+  --secondary: #8b5cf6;
+  --accent-green: #22c55e;
+  --danger: #ef4444;
   
   /* Button Text Colors */
-  --btn-text-check: #38bdf8;
-  --btn-text-visit: #a78bfa;
+  --btn-text-check: #60a5fa;
+  --btn-text-graph: #c084fc;
+  --btn-text-visit: #818cf8;
   --btn-text-edit: #fbbf24;
   --btn-text-snip: #22d3ee;
   --btn-text-remove: #f87171;
   
-  --arrow-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23f1f5f9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  --arrow-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   
-  --trend-down-border: #4ade80;
-  --trend-down-bg: rgba(74, 222, 128, 0.05);
-  --trend-up-border: #f87171;
-  --trend-up-bg: rgba(248, 113, 113, 0.05);
+  --trend-down-border: #22c55e;
+  --trend-down-bg: rgba(34, 197, 94, 0.15);
+  --trend-up-border: #ef4444;
+  --trend-up-bg: rgba(239, 68, 68, 0.15);
 }
 
 .colorful {
   color-scheme: light;
-  /* ... light theme colors ... */
   --bg-app: #ffffff;
   --bg-panel: #f3f4f6;
   --bg-input: #ffffff;
@@ -51,17 +56,16 @@
   --arrow-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23000000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
-/* ... [Keep Global Reset & Layout] ... */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: var(--font-main); background: var(--bg-app); color: var(--text-main); -webkit-font-smoothing: antialiased; transition: background 0.3s ease, color 0.3s ease; }
 .app-wrapper { min-height: 100vh; display: flex; flex-direction: column; }
 .main-content { width: 100%; max-width: 1600px; margin: 0 auto; padding: 20px; padding-top: 90px; }
 
-/* ... [Keep Header, Controls, Auth] ... */
+/* --- HEADER --- */
 .navbar { position: fixed; top: 0; left: 0; right: 0; height: 70px; background: rgba(0,0,0, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); z-index: 100; display: flex; justify-content: center; }
 .colorful .navbar { background: rgba(255, 255, 255, 0.95); }
 .nav-content { width: 100%; max-width: 1600px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; }
-.brand { display: flex; flex-direction: row; align-items: center; gap: 12px; } 
+.brand { display: flex; align-items: center; gap: 12px; }
 .logo-box { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .logo-icon { width: 100%; height: 100%; object-fit: contain; max-width: 40px; }
 h1 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin: 0; margin-top: -5px; }
@@ -89,7 +93,7 @@ h1 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, 
 .auth-switch span { color: var(--primary); font-weight: 700; cursor: pointer; margin-left: 5px; }
 
 .controls-panel { display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; }
-.add-bar, .filter-bar { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 10px; display: flex; gap: 10px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+.add-bar, .filter-bar { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 10px; display: flex; gap: 10px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }
 .main-input, .main-select, .filters select, .primary-btn { height: 48px; padding: 0 15px; border-radius: 8px; font-size: 16px !important; border: 1px solid var(--border); box-sizing: border-box; font-family: var(--font-main); }
 .main-input { flex: 2; background: var(--bg-input); color: var(--text-main); min-width: 200px; outline: none; transition: border-color 0.2s; }
 .main-input:focus, .main-select:focus { border-color: var(--primary); }
@@ -115,8 +119,7 @@ h1 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, 
 .card-body { padding: 15px; flex: 1; display: flex; flex-direction: column; gap: 8px; cursor: pointer; }
 h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 2.8em; }
 
-/* --- META ROW LAYOUT (UPDATED) --- */
-/* Split Price and Timestamps apart */
+/* --- META ROW LAYOUT --- */
 .meta-row { 
     display: flex; 
     justify-content: space-between; 
@@ -130,7 +133,7 @@ h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit
 .trend-down .amount { color: var(--accent-green); }
 .prev-price { font-size: 0.75rem; text-decoration: line-through; color: var(--text-muted); margin-left: 8px; }
 
-/* NEW: Stack Timestamps Vertically */
+/* STACKED TIMESTAMPS */
 .timestamps {
     display: flex;
     flex-direction: column;
@@ -139,9 +142,9 @@ h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit
     font-size: 0.65rem;
     color: var(--text-muted);
     line-height: 1.2;
+    text-align: right;
 }
-
-.separator { display: none; } /* Hide pipe separator if stacking */
+.separator { display: none; } 
 
 .badge { font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; background: var(--bg-app); color: var(--text-muted); font-weight: 600; border: 1px solid var(--border); }
 .domain-row { margin-top: 5px; }
@@ -162,10 +165,24 @@ h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit
 @media (max-width: 768px) {
   .main-content { padding-top: 80px; padding-left: 10px; padding-right: 10px; }
   
+  /* MOBILE AUTH: Remove box styling, make it clean and full screen */
   .auth-box { 
-      background: transparent !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; padding: 20px; display: flex; flex-direction: column; justify-content: center; min-height: 100vh;
+      background: transparent !important; 
+      border: none !important; 
+      box-shadow: none !important; 
+      backdrop-filter: none !important; 
+      -webkit-backdrop-filter: none !important;
+      padding: 20px; 
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 100vh;
   }
+  
+  /* Hide "Welcome Back" text on mobile auth */
   .auth-box h2 { display: none; }
+  
+  .brand-center { margin-bottom: 40px; }
   .brand-center .logo-box { width: 80px; height: 80px; margin-bottom: 10px; background: transparent; }
   .brand-center .logo-icon { width: 80px; height: 80px; max-width: none; }
   .brand-center h1 { font-size: 3rem; margin-top: 10px; }
@@ -180,7 +197,7 @@ h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit
   .action-btn { padding: 15px 0; font-size: 0.9rem; } 
 }
 
-/* ... [Keep Modal Styles] ... */
+/* --- MODAL --- */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; }
 .modal-box { background: var(--bg-panel); border-radius: 16px; border: 1px solid var(--border); width: 90%; max-width: 500px; overflow: hidden; }
 .modal-head { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }

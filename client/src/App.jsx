@@ -121,19 +121,11 @@ function App() {
       return ( <div className="price-box"><span className="currency">{item.currency}</span><span className="amount">{item.current_price.toLocaleString()}</span>{hasChange && (<span className={`prev-price ${trend}`}>{trend === 'down' ? 'Was' : 'Low'} {item.previous_price.toLocaleString()}</span>)}</div> );
   };
 
-  // --- NEW: Date Formatter dd-mmm-yy ---
-  const formatDate = (dateString, showTime = false) => {
+  // HELPER: DATE FORMATTER
+  const formatDate = (dateString) => {
       if (!dateString) return 'N/A';
-      const d = new Date(dateString);
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = d.toLocaleString('default', { month: 'short' });
-      const year = String(d.getFullYear()).slice(-2);
-      const datePart = `${day}-${month}-${year}`;
-      
-      if (!showTime) return datePart;
-      
-      const timePart = d.toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'});
-      return `${datePart} ${timePart}`;
+      const date = new Date(dateString);
+      return date.toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) + ' ' + date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   };
 
   const graphStats = useMemo(() => { if(history.length === 0) return { min: 0, max: 0 }; const prices = history.map(h => h.price); return { min: Math.min(...prices), max: Math.max(...prices) }; }, [history]);
@@ -143,6 +135,7 @@ function App() {
   const getImageSrc = (item) => { if (item.screenshot_path) return `${API_URL.replace('/api', '')}/screenshots/${item.screenshot_path}`; return item.image_url; };
 
   if (!token) {
+      // ... Auth UI code from your working version ...
       return (
         <div className={`app-wrapper ${theme} auth-screen`}>
             <div className="auth-box">
@@ -165,10 +158,7 @@ function App() {
     <div className={`app-wrapper ${theme}`}>
       <nav className="navbar">
         <div className="nav-content">
-            <div className="brand">
-                <div className="logo-box"><img src="/logo.svg" alt="Logo" className="logo-icon" /></div>
-                <span className="brand-name">LootLook</span>
-            </div>
+            <div className="brand"><div className="logo-box"><img src="/logo.svg" alt="Logo" className="logo-icon" /></div><span className="brand-name">LootLook</span></div>
             <div className="nav-actions">
                 <button className={`nav-btn ${globalSync ? 'spin' : ''}`} onClick={fetchItems} title="Sync"><Icons.Sync /></button>
                 <button className="nav-btn" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <Icons.Close /> : <Icons.Menu />}</button>
@@ -189,7 +179,7 @@ function App() {
             <form onSubmit={handleAdd} className="add-bar">
                 <input type="url" placeholder="Paste product link here..." value={url} onChange={(e) => setUrl(e.target.value)} required className="main-input" />
                 <div className="add-actions">
-                    <select value={retention} onChange={(e) => setRetention(e.target.value)} className="main-select"><option value="30">30 Days</option><option value="90">90 Days</option><option value="365">1 Year</option></select>
+                    <select value={retention} onChange={(e) => setRetention(e.target.value)} className="main-select"><option value="30">30 Days</option><option value="30">90 Days</option><option value="365">1 Year</option></select>
                     <button type="submit" disabled={loading} className="primary-btn">{loading ? 'Adding...' : 'Track'}</button>
                 </div>
             </form>
@@ -207,9 +197,9 @@ function App() {
                         <div className="meta-row">
                             {renderPriceBox(item)}
                             <div className="timestamps">
-                                <span className="date-added">Added: {formatDate(item.date_added, false)}</span>
+                                <span className="date-added">Added: {formatDate(item.date_added)}</span>
                                 <span className="separator">|</span>
-                                <span className="date-checked">Checked: {formatDate(item.last_checked, true)}</span>
+                                <span className="date-checked">Checked: {formatDate(item.last_checked)}</span>
                             </div>
                         </div>
                         <div className="domain-row"><span className="badge">{getDomain(item.url)}</span></div>
