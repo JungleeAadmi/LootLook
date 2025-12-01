@@ -29,54 +29,74 @@ async function scrapeProduct(url) {
         browser = await puppeteer.launch({
             headless: "new",
             args: [
-                '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-                '--window-size=1080,1920', // Updated Resolution
+                '--no-sandbox', 
+                '--disable-setuid-sandbox', 
+                '--disable-dev-shm-usage',
+                '--window-size=1080,1920', // Mobile/Vertical aspect ratio
                 '--disable-blink-features=AutomationControlled',
-                '--disable-features=IsolateOrigins,site-per-process', '--lang=en-US,en'
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--lang=en-US,en'
             ]
         });
 
         const page = await browser.newPage();
+        
+        // Stealth
         await page.emulateTimezone('Asia/Kolkata');
         await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
-        
-        // 2. Set Mobile/Vertical Resolution
         await page.setViewport({ width: 1080, height: 1920 });
 
-        try { await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 }); } catch(e) {}
+        // Navigate (Stricter Wait)
+        try { 
+            // 'networkidle2' = no more than 2 connections for 500ms
+            await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 }); 
+        } catch(e) { console.log("Navigation timeout, continuing..."); }
 
-        // Auto-Scroll
+        // --- DYNAMIC LOADING FIXES ---
+        
+        // 1. Full Page Scroll (Down AND Up)
         await page.evaluate(async () => {
             await new Promise((resolve) => {
                 let totalHeight = 0;
-                const distance = 150;
+                const distance = 200;
                 const timer = setInterval(() => {
                     const scrollHeight = document.body.scrollHeight;
                     window.scrollBy(0, distance);
                     totalHeight += distance;
-                    if(totalHeight >= 2500){ clearInterval(timer); resolve(); }
-                }, 100);
+                    // Scroll deep enough to trigger everything
+                    if(totalHeight >= 3500){ 
+                        clearInterval(timer);
+                        // Scroll back to top for the screenshot
+                        window.scrollTo(0, 0);
+                        resolve();
+                    }
+                }, 50);
             });
         });
 
-        // 1. Wait 3 Seconds for load completion
-        await wait(3000);
+        // 2. Wait for Fonts & Images
+        await page.evaluate(() => document.fonts.ready); // Wait for web fonts
+        await wait(3000); // Hard wait for React hydration
 
-        // 3. FONT FIX: Inject standard font to fix Box/Smiley symbols
+        // 3. Inject Styles (Fix Currency)
         await page.evaluate(() => {
             const style = document.createElement('style');
-            style.innerHTML = `* { font-family: Arial, Helvetica, sans-serif !important; }`; 
+            // Force system fonts to avoid "Box" characters
+            style.innerHTML = `
+                * { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important; }
+                #cookie-banner, .cookie-consent, .popup, .modal, [id*="popup"], [class*="popup"] { display: none !important; }
+            `; 
             document.head.appendChild(style);
         });
-        await wait(500); // Short wait for font render
+        await wait(500);
 
-        // Capture Screenshot
+        // --- CAPTURE SCREENSHOT ---
         await page.screenshot({ 
             path: filepath, 
             type: 'jpeg', 
-            quality: 65, 
-            clip: { x: 0, y: 0, width: 1080, height: 1920 } // Capture top 1200px
+            quality: 75, 
+            clip: { x: 0, y: 0, width: 1080, height: 1500 }
         });
 
         let data = await page.evaluate(() => {
