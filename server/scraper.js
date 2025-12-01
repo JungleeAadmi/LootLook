@@ -32,26 +32,36 @@ async function scrapeProduct(url) {
                 '--no-sandbox', 
                 '--disable-setuid-sandbox', 
                 '--disable-dev-shm-usage',
-                '--window-size=1080,1920', // Mobile/Vertical aspect ratio
-                '--disable-blink-features=AutomationControlled',
+                '--window-size=1920,1080', 
+                '--disable-blink-features=AutomationControlled', // Crucial for detection evasion
                 '--disable-features=IsolateOrigins,site-per-process',
-                '--lang=en-US,en'
-            ]
+                '--lang=en-US,en;q=0.9'
+            ],
+            ignoreHTTPSErrors: true
         });
 
         const page = await browser.newPage();
         
-        // Stealth
-        await page.emulateTimezone('Asia/Kolkata');
-        await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-        await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
+        // Advanced Stealth
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => false });
+        });
+
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        await page.setExtraHTTPHeaders({ 
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Upgrade-Insecure-Requests': '1',
+            'Cache-Control': 'max-age=0'
+        });
+        
         await page.setViewport({ width: 1080, height: 1920 });
 
-        // Navigate (Stricter Wait)
+        // Navigate with robust wait
         try { 
-            // 'networkidle2' = no more than 2 connections for 500ms
-            await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 }); 
-        } catch(e) { console.log("Navigation timeout, continuing..."); }
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 }); 
+            await wait(2000); // Initial settle
+        } catch(e) { console.log("Navigation timeout/error, continuing...", e.message); }
 
         // --- DYNAMIC LOADING FIXES ---
         
@@ -64,10 +74,8 @@ async function scrapeProduct(url) {
                     const scrollHeight = document.body.scrollHeight;
                     window.scrollBy(0, distance);
                     totalHeight += distance;
-                    // Scroll deep enough to trigger everything
                     if(totalHeight >= 3500){ 
                         clearInterval(timer);
-                        // Scroll back to top for the screenshot
                         window.scrollTo(0, 0);
                         resolve();
                     }
@@ -76,16 +84,17 @@ async function scrapeProduct(url) {
         });
 
         // 2. Wait for Fonts & Images
-        await page.evaluate(() => document.fonts.ready); // Wait for web fonts
-        await wait(3000); // Hard wait for React hydration
+        try {
+            await page.waitForFunction('document.fonts.ready');
+        } catch (e) {}
+        await wait(3000); 
 
-        // 3. Inject Styles (Fix Currency)
+        // 3. Inject Styles (Fix Currency & Hide Popups)
         await page.evaluate(() => {
             const style = document.createElement('style');
-            // Force system fonts to avoid "Box" characters
             style.innerHTML = `
-                * { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important; }
-                #cookie-banner, .cookie-consent, .popup, .modal, [id*="popup"], [class*="popup"] { display: none !important; }
+                * { font-family: Arial, Helvetica, sans-serif !important; }
+                #cookie-banner, .cookie-consent, .popup, .modal, [id*="popup"], [class*="popup"], [aria-modal="true"] { display: none !important; }
             `; 
             document.head.appendChild(style);
         });
@@ -111,7 +120,13 @@ async function scrapeProduct(url) {
             if(metaImage) image = metaImage;
 
             if(!price || price == 0) {
-                const selectors = ['.product-price', '.price', '.a-price-whole', '._30jeq3', '.pdp-price', '.ProductDescriptionPage__price', 'h4[color="greyBase"]', '#ProductPrice', '.PdpInfo__Price'];
+                // Added more selectors
+                const selectors = [
+                    '.product-price', '.price', '.a-price-whole', '._30jeq3', 
+                    '.pdp-price', '.ProductDescriptionPage__price', 
+                    'h4[color="greyBase"]', '#ProductPrice', '.PdpInfo__Price',
+                    '[data-testid="price"]', '.Price__Value'
+                ];
                 for (let sel of selectors) {
                     const el = document.querySelector(sel);
                     if (el && el.innerText.match(/[0-9]/)) { price = el.innerText; break; }
