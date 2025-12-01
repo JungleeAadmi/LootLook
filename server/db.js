@@ -14,9 +14,18 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 function initDb() {
     db.serialize(() => {
+        // Users Table
+        db.run(`CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT,
+            created_at TEXT
+        )`);
+
         // Items Table
         db.run(`CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
             url TEXT NOT NULL,
             name TEXT,
             image_url TEXT,
@@ -26,7 +35,9 @@ function initDb() {
             currency TEXT DEFAULT '$',
             retention_days INTEGER DEFAULT 30,
             last_checked TEXT,
-            date_added TEXT
+            date_added TEXT,
+            shared_by TEXT, 
+            FOREIGN KEY(user_id) REFERENCES users(id)
         )`);
 
         // Price History
@@ -45,6 +56,8 @@ function initDb() {
             if (!names.includes('previous_price')) db.run("ALTER TABLE items ADD COLUMN previous_price REAL DEFAULT 0");
             if (!names.includes('date_added')) db.run(`ALTER TABLE items ADD COLUMN date_added TEXT DEFAULT '${new Date().toISOString()}'`);
             if (!names.includes('screenshot_path')) db.run("ALTER TABLE items ADD COLUMN screenshot_path TEXT");
+            if (!names.includes('user_id')) db.run("ALTER TABLE items ADD COLUMN user_id INTEGER DEFAULT 1");
+            if (!names.includes('shared_by')) db.run("ALTER TABLE items ADD COLUMN shared_by TEXT");
         });
     });
 }

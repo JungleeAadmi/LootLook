@@ -210,3 +210,56 @@ h3 { font-size: 1rem; margin: 0; line-height: 1.4; display: -webkit-box; -webkit
 .input-group input { flex: 1; padding: 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-size: 16px; width: 100%; }
 .input-group button { padding: 0 15px; background: var(--bg-app); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); cursor: pointer; font-weight: 600; }
 .save-btn { width: 100%; padding: 12px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 10px; font-size: 1rem; }
+/* ... [Keep all previous CSS] ... */
+/* Add these new styles at the end */
+
+/* SHARED TAG */
+.shared-tag {
+    font-size: 0.7rem;
+    color: var(--secondary);
+    font-weight: 700;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.shared-tag::before {
+    content: '↩';
+    font-size: 0.9rem;
+}
+
+/* SHARE BUTTON COLOR */
+.action-btn.share-btn { color: var(--accent-green); }
+
+/* SHARE MODAL USER LIST */
+.user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.user-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+.user-item:hover {
+    border-color: var(--primary);
+}
+.share-action-btn {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
