@@ -8,12 +8,12 @@ let socket;
 
 // --- ICONS ---
 const Icons = {
-  // ... keep existing icons ...
   Menu: () => <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16m-7 6h7" /></svg>,
   Close: () => <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>,
   Sync: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>,
   Check: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Graph: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4v16a1 1 0 001 1h16M5 8l4-4 4 4" /></svg>,
+  Snip: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
   Edit: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
   Web: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>,
   Visit: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>,
@@ -26,7 +26,7 @@ const Icons = {
 };
 
 function App() {
-  // ... [Existing State] ...
+  // ... [State and Logic - No Changes] ...
   const [token, setToken] = useState(localStorage.getItem('lootlook-token'));
   const [username, setUsername] = useState(localStorage.getItem('lootlook-user'));
   const [authMode, setAuthMode] = useState('login'); 
@@ -61,7 +61,7 @@ function App() {
       return () => { if(socket) socket.off('REFRESH_DATA'); };
   }, [theme, token]);
 
-  const handleAuth = async (e) => { /* ... keep existing ... */ 
+  const handleAuth = async (e) => {
       e.preventDefault();
       try {
           const endpoint = authMode === 'login' ? '/api/login' : '/api/register';
@@ -74,7 +74,6 @@ function App() {
           } else { alert('Registration successful!'); setAuthMode('login'); }
       } catch (err) { alert(err.message); }
   };
-  
   const logout = () => { localStorage.removeItem('lootlook-token'); setToken(null); setItems([]); setMenuOpen(false); };
   
   const fetchUsers = async () => {
@@ -102,7 +101,6 @@ function App() {
       fetchUsers();
   };
 
-  // ... [Keep all other handlers: Add, Delete, Update, Refresh, CheckAll, History, etc.] ...
   const getDomain = (url) => { try { return new URL(url).hostname.replace('www.', ''); } catch (e) { return 'unknown'; } };
   const toggleTheme = () => { const newTheme = theme === 'dark' ? 'colorful' : 'dark'; setTheme(newTheme); localStorage.setItem('lootlook-theme', newTheme); setMenuOpen(false); };
   const fetchItems = async () => { if(!token) return; setGlobalSync(true); try { const res = await fetch(`${API_URL}/items`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.status === 401) logout(); const json = await res.json(); setItems(json.data || []); } catch (err) { console.error(err); } setTimeout(() => setGlobalSync(false), 800); };
@@ -117,14 +115,16 @@ function App() {
   const openImage = (e, item) => { e.stopPropagation(); setViewImageItem(item); };
   const getTrend = (c, p) => (!p || c === p) ? 'neutral' : (c < p ? 'down' : 'up');
   const renderPriceBox = (item) => { const trend = getTrend(item.current_price, item.previous_price); const hasChange = item.previous_price > 0 && item.current_price !== item.previous_price; return ( <div className="price-box"><span className="currency">{item.currency}</span><span className="amount">{item.current_price.toLocaleString()}</span>{hasChange && (<span className={`prev-price ${trend}`}>{trend === 'down' ? 'Was' : 'Low'} {item.previous_price.toLocaleString()}</span>)}</div> ); };
-  const formatDate = (dateString) => { if (!dateString) return 'N/A'; const d = new Date(dateString); return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) + ' | ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); };
+  const formatDate = (dateString) => { if (!dateString) return 'N/A'; const d = new Date(dateString); return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year:'2-digit' }); };
+  const formatTime = (dateString) => { if (!dateString) return ''; return new Date(dateString).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); };
   const graphStats = useMemo(() => { if(history.length === 0) return { min: 0, max: 0 }; const prices = history.map(h => h.price); return { min: Math.min(...prices), max: Math.max(...prices) }; }, [history]);
   const domains = [...new Set(items.map(i => getDomain(i.url)))].sort((a, b) => a.localeCompare(b));
   const uniqueDomains = ['ALL', ...domains];
   const filteredItems = filterDomain === 'ALL' ? items : items.filter(i => getDomain(i.url) === filterDomain);
   const getImageSrc = (item) => { if (item.screenshot_path) return `${API_URL.replace('/api', '')}/screenshots/${item.screenshot_path}`; return item.image_url; };
 
-  if (!token) { /* ... [Keep Auth UI] ... */
+  if (!token) {
+      // ... [Keep Auth UI same as previous] ...
       return (
         <div className={`app-wrapper ${theme} auth-screen`}>
             <div className="auth-box">
@@ -142,7 +142,7 @@ function App() {
 
   return (
     <div className={`app-wrapper ${theme}`}>
-      {/* ... [Keep Navbar & Controls] ... */}
+      {/* ... [Navbar & Controls same as previous] ... */}
       <nav className="navbar">
         <div className="nav-content">
             <div className="brand"><div className="logo-box"><img src="/logo.svg" alt="Logo" className="logo-icon" /></div><span className="brand-name">LootLook</span></div>
@@ -171,14 +171,13 @@ function App() {
                     <div className="card-body" onClick={() => openHistory(item)}>
                         {/* Shared By Tag */}
                         {item.shared_by && <div className="shared-tag">Shared by {item.shared_by}</div>}
-                        
                         <h3 title={item.name}>{item.name}</h3>
                         <div className="meta-row">
                             {renderPriceBox(item)}
                             <div className="timestamps">
-                                <span className="date-added">Added: {formatDate(item.date_added).split(' |')[0]}</span>
+                                <span className="date-added">Added: {formatDate(item.date_added)}</span>
                                 <span className="separator">|</span>
-                                <span className="date-checked">Checked: {formatDate(item.last_checked)}</span>
+                                <span className="date-checked">Checked: {formatDate(item.last_checked)} {formatTime(item.last_checked)}</span>
                             </div>
                         </div>
                         <div className="domain-row"><span className="badge">{getDomain(item.url)}</span></div>
@@ -187,8 +186,8 @@ function App() {
                         <button onClick={() => handleRefresh(item.id)} disabled={refreshingId === item.id} className="action-btn check" title="Check Price">{refreshingId === item.id ? '...' : <Icons.Check />}</button>
                         <button onClick={() => openHistory(item)} className="action-btn graph" title="Price History"><Icons.Graph /></button>
                         
-                        {/* SHARE BUTTON (Replaces Snip) */}
-                        <button onClick={() => openShareModal(item)} className="action-btn share-btn" title="Share Item"><Icons.Web /> Share</button>
+                        {/* SHARE BUTTON (ICON ONLY) */}
+                        <button onClick={() => openShareModal(item)} className="action-btn share-btn" title="Share Item"><Icons.Share /></button>
                         
                         <button onClick={() => setEditingItem(item)} className="action-btn edit" title="Edit Item"><Icons.Edit /></button>
                         <a href={item.url} target="_blank" rel="noreferrer" className="action-btn visit" title="Webpage"><Icons.Web /></a>
@@ -199,8 +198,7 @@ function App() {
             {items.length === 0 && !loading && <div className="empty-state">No items yet. Add one above!</div>}
         </section>
       </main>
-      
-      {/* ... [Keep existing modals] ... */}
+      {/* Modals */}
       {selectedItem && (<div className="modal-backdrop" onClick={() => setSelectedItem(null)}><div className="modal-box" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>History</h3><button onClick={() => setSelectedItem(null)}>×</button></div><div className="modal-body graph-body"><ResponsiveContainer width="100%" height={300}><LineChart data={history} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}><XAxis dataKey="date" stroke="currentColor" fontSize={12} /><YAxis stroke="currentColor" domain={['auto', 'auto']} /><Tooltip contentStyle={{backgroundColor: 'var(--bg-panel)', border:'none', color:'var(--text-main)'}} /><Line type="monotone" dataKey="price" stroke="var(--primary)" strokeWidth={3} dot={{r: 4, fill:'#38bdf8'}} activeDot={{r: 6}} /><ReferenceLine y={graphStats.min} stroke="var(--accent-green)" strokeDasharray="3 3"><Label value={`Min: ${graphStats.min}`} position="insideBottomRight" fill="var(--accent-green)" fontSize={10} /></ReferenceLine><ReferenceLine y={graphStats.max} stroke="var(--danger)" strokeDasharray="3 3"><Label value={`Max: ${graphStats.max}`} position="insideTopRight" fill="var(--danger)" fontSize={10} /></ReferenceLine></LineChart></ResponsiveContainer></div></div></div>)}
       {editingItem && (<div className="modal-backdrop" onClick={() => setEditingItem(null)}><div className="modal-box" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>Edit</h3><button onClick={() => setEditingItem(null)}>×</button></div><form onSubmit={handleUpdate} className="modal-body form-body"><div className="form-group"><label>Link</label><div className="input-group"><input value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} /><button type="button" className="copy-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link"><Icons.Copy /></button></div></div><div className="form-group"><label>Retention</label><select value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}><option value="30">30 Days</option><option value="365">1 Year</option></select></div><button type="submit" className="save-btn">Save</button></form></div></div>)}
       {viewImageItem && (<div className="modal-backdrop" onClick={() => setViewImageItem(null)}><div className="modal-box image-modal" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>Snip</h3><button onClick={() => setViewImageItem(null)}>×</button></div><div className="modal-body" style={{padding:0, display:'flex', justifyContent:'center', background:'#000'}}><img src={getImageSrc(viewImageItem)} alt="Snip" style={{maxWidth:'100%', maxHeight:'80vh', objectFit:'contain'}} /></div></div></div>)}
