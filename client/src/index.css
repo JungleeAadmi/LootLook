@@ -323,3 +323,38 @@ h3 {
   
   /* ... [Keep other mobile styles] ... */
 }
+/* ... [Keep all existing CSS] ... */
+
+/* TOAST NOTIFICATION */
+.toast-notification {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    z-index: 2000;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from { transform: translate(-50%, 100%); opacity: 0; }
+    to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.toast-notification button {
+    background: transparent;
+    border: none;
+    color: var(--primary);
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.toast-notification button:hover { text-decoration: underline; }
