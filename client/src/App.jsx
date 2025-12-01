@@ -21,16 +21,17 @@ const Icons = {
   Copy: () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>,
   Export: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
   Logout: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>,
-  // NEW: Share Icon
   Share: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
 };
 
 function App() {
-  // ... [State and Logic - No Changes] ...
   const [token, setToken] = useState(localStorage.getItem('lootlook-token'));
   const [username, setUsername] = useState(localStorage.getItem('lootlook-user'));
+  const [fullName, setFullName] = useState(localStorage.getItem('lootlook-name') || ''); // User's real name
   const [authMode, setAuthMode] = useState('login'); 
-  const [authInput, setAuthInput] = useState({ username: '', password: '' });
+  // Extended Auth Input
+  const [authInput, setAuthInput] = useState({ username: '', password: '', name: '', gender: 'Male', age: '' });
+
   const [items, setItems] = useState([]);
   const [url, setUrl] = useState('');
   const [retention, setRetention] = useState(30);
@@ -45,8 +46,6 @@ function App() {
   const [checkingAll, setCheckingAll] = useState(false); 
   const [globalSync, setGlobalSync] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  
-  // NEW: Share State
   const [shareItem, setShareItem] = useState(null);
   const [users, setUsers] = useState([]);
 
@@ -65,58 +64,62 @@ function App() {
       e.preventDefault();
       try {
           const endpoint = authMode === 'login' ? '/api/login' : '/api/register';
-          const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authInput) });
+          const res = await fetch(endpoint, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(authInput)
+          });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Auth failed');
+          
           if (authMode === 'login') {
-              localStorage.setItem('lootlook-token', data.token); localStorage.setItem('lootlook-user', data.username);
-              setToken(data.token); setUsername(data.username);
-          } else { alert('Registration successful!'); setAuthMode('login'); }
+              localStorage.setItem('lootlook-token', data.token);
+              localStorage.setItem('lootlook-user', data.username);
+              localStorage.setItem('lootlook-name', data.name || data.username); // Store Name
+              setToken(data.token);
+              setUsername(data.username);
+              setFullName(data.name || data.username);
+          } else {
+              alert('Registration successful! Please login.');
+              setAuthMode('login');
+          }
       } catch (err) { alert(err.message); }
   };
-  const logout = () => { localStorage.removeItem('lootlook-token'); setToken(null); setItems([]); setMenuOpen(false); };
-  
-  const fetchUsers = async () => {
-      try {
-          const res = await fetch(`${API_URL}/users`, { headers: { 'Authorization': `Bearer ${token}` } });
-          const json = await res.json();
-          setUsers(json.data || []);
-      } catch(e) { console.error(e); }
+
+  const logout = () => {
+      localStorage.removeItem('lootlook-token');
+      localStorage.removeItem('lootlook-user');
+      localStorage.removeItem('lootlook-name');
+      setToken(null); setItems([]); setMenuOpen(false);
   };
 
-  const handleShare = async (targetUserId) => {
-      try {
-          const res = await fetch(`${API_URL}/share`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-              body: JSON.stringify({ itemId: shareItem.id, targetUserId })
-          });
-          if(res.ok) { alert("Shared successfully!"); setShareItem(null); }
-          else { alert("Failed to share"); }
-      } catch(e) { alert("Error sharing"); }
-  };
-
-  const openShareModal = (item) => {
-      setShareItem(item);
-      fetchUsers();
-  };
+  const fetchUsers = async () => { try { const res = await fetch(`${API_URL}/users`, { headers: { 'Authorization': `Bearer ${token}` } }); const json = await res.json(); setUsers(json.data || []); } catch(e) { console.error(e); } };
+  const handleShare = async (targetUserId) => { try { const res = await fetch(`${API_URL}/share`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ itemId: shareItem.id, targetUserId }) }); if(res.ok) { alert("Shared!"); setShareItem(null); } } catch(e) { alert("Error sharing"); } };
+  const openShareModal = (item) => { setShareItem(item); fetchUsers(); };
 
   const getDomain = (url) => { try { return new URL(url).hostname.replace('www.', ''); } catch (e) { return 'unknown'; } };
   const toggleTheme = () => { const newTheme = theme === 'dark' ? 'colorful' : 'dark'; setTheme(newTheme); localStorage.setItem('lootlook-theme', newTheme); setMenuOpen(false); };
+  
   const fetchItems = async () => { if(!token) return; setGlobalSync(true); try { const res = await fetch(`${API_URL}/items`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.status === 401) logout(); const json = await res.json(); setItems(json.data || []); } catch (err) { console.error(err); } setTimeout(() => setGlobalSync(false), 800); };
   const handleAdd = async (e) => { e.preventDefault(); setLoading(true); try { const res = await fetch(`${API_URL}/items`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ url, retention: parseInt(retention) }) }); if (!res.ok) throw new Error("Failed to add"); setUrl(''); } catch (err) { alert(err.message); } setLoading(false); };
   const handleDelete = async (id) => { if(!confirm("Delete?")) return; await fetch(`${API_URL}/items/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } }); };
   const handleUpdate = async (e) => { e.preventDefault(); try { await fetch(`${API_URL}/items/${editingItem.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ url: editingItem.url, retention: parseInt(editingItem.retention_days) }) }); setEditingItem(null); } catch (err) { alert("Failed"); } };
   const handleRefresh = async (id) => { setRefreshingId(id); try { await fetch(`${API_URL}/refresh/${id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); } catch(err) { alert("Network error"); } setRefreshingId(null); };
-  const handleCheckAll = async () => { setMenuOpen(false); if (checkingAll) return; if (!confirm(`Check all?`)) return; setCheckingAll(true); for (const item of items) { try { await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); } catch (e) {} } setCheckingAll(false); };
+  const handleCheckAll = async () => { setMenuOpen(false); if (checkingAll) return; if (!confirm("Check all?")) return; setCheckingAll(true); for (const item of items) { try { await fetch(`${API_URL}/refresh/${item.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); } catch (e) {} } setCheckingAll(false); };
   const handleExport = () => { setMenuOpen(false); window.open(`${API_URL}/export?token=${token}`, '_blank'); }; 
   const copyToClipboard = (text) => { navigator.clipboard.writeText(text).then(() => alert("Copied!")); };
   const openHistory = async (item) => { setSelectedItem(item); try { const res = await fetch(`${API_URL}/history/${item.id}`, { headers: { 'Authorization': `Bearer ${token}` } }); const json = await res.json(); setHistory(json.data.map(p => ({ date: new Date(p.date).toLocaleDateString(undefined, {month:'short', day:'numeric'}), price: p.price }))); } catch (err) { console.error(err); } };
   const openImage = (e, item) => { e.stopPropagation(); setViewImageItem(item); };
+
   const getTrend = (c, p) => (!p || c === p) ? 'neutral' : (c < p ? 'down' : 'up');
-  const renderPriceBox = (item) => { const trend = getTrend(item.current_price, item.previous_price); const hasChange = item.previous_price > 0 && item.current_price !== item.previous_price; return ( <div className="price-box"><span className="currency">{item.currency}</span><span className="amount">{item.current_price.toLocaleString()}</span>{hasChange && (<span className={`prev-price ${trend}`}>{trend === 'down' ? 'Was' : 'Low'} {item.previous_price.toLocaleString()}</span>)}</div> ); };
-  const formatDate = (dateString) => { if (!dateString) return 'N/A'; const d = new Date(dateString); return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year:'2-digit' }); };
+  const renderPriceBox = (item) => {
+      const trend = getTrend(item.current_price, item.previous_price);
+      const hasChange = item.previous_price > 0 && item.current_price !== item.previous_price;
+      return ( <div className="price-box"><span className="currency">{item.currency}</span><span className="amount">{item.current_price.toLocaleString()}</span>{hasChange && (<span className={`prev-price ${trend}`}>{trend === 'down' ? 'Was' : 'Low'} {item.previous_price.toLocaleString()}</span>)}</div> );
+  };
+
+  const formatDate = (dateString) => { if (!dateString) return 'N/A'; return new Date(dateString).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year:'2-digit' }); };
   const formatTime = (dateString) => { if (!dateString) return ''; return new Date(dateString).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); };
+
   const graphStats = useMemo(() => { if(history.length === 0) return { min: 0, max: 0 }; const prices = history.map(h => h.price); return { min: Math.min(...prices), max: Math.max(...prices) }; }, [history]);
   const domains = [...new Set(items.map(i => getDomain(i.url)))].sort((a, b) => a.localeCompare(b));
   const uniqueDomains = ['ALL', ...domains];
@@ -124,14 +127,30 @@ function App() {
   const getImageSrc = (item) => { if (item.screenshot_path) return `${API_URL.replace('/api', '')}/screenshots/${item.screenshot_path}`; return item.image_url; };
 
   if (!token) {
-      // ... [Keep Auth UI same as previous] ...
       return (
         <div className={`app-wrapper ${theme} auth-screen`}>
+            <button className="theme-float" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
             <div className="auth-box">
                 <div className="brand-center"><div className="logo-box"><img src="/logo.svg" alt="Logo" className="logo-icon" /></div><h1>LootLook</h1></div>
                 <form onSubmit={handleAuth}>
                     <input className="main-input full-width" placeholder="Username" value={authInput.username} onChange={e => setAuthInput({...authInput, username: e.target.value})} required />
                     <input className="main-input full-width" placeholder="Password" type="password" value={authInput.password} onChange={e => setAuthInput({...authInput, password: e.target.value})} required />
+                    
+                    {authMode === 'register' && (
+                        <>
+                            <input className="main-input full-width" placeholder="Full Name" value={authInput.name} onChange={e => setAuthInput({...authInput, name: e.target.value})} required />
+                            <input className="main-input full-width" placeholder="Age" type="number" value={authInput.age} onChange={e => setAuthInput({...authInput, age: e.target.value})} required />
+                            <div style={{marginBottom: '15px', display: 'flex', gap: '10px'}}>
+                                <label style={{color: 'var(--text-muted)'}}>Gender: </label>
+                                <select className="main-select" style={{height: '40px'}} value={authInput.gender} onChange={e => setAuthInput({...authInput, gender: e.target.value})}>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                        </>
+                    )}
+
                     <button type="submit" className="primary-btn full-width">{authMode === 'login' ? 'Login' : 'Sign Up'}</button>
                 </form>
                 <p className="auth-switch">{authMode === 'login' ? "New here?" : "Have account?"} <span onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>{authMode === 'login' ? ' Join' : ' Login'}</span></p>
@@ -142,10 +161,16 @@ function App() {
 
   return (
     <div className={`app-wrapper ${theme}`}>
-      {/* ... [Navbar & Controls same as previous] ... */}
       <nav className="navbar">
         <div className="nav-content">
-            <div className="brand"><div className="logo-box"><img src="/logo.svg" alt="Logo" className="logo-icon" /></div><span className="brand-name">LootLook</span></div>
+            <div className="brand">
+                <div className="logo-box"><img src="/logo.svg" alt="Logo" className="logo-icon" /></div>
+                {/* DISPLAY USERNAME HERE */}
+                <div style={{display:'flex', flexDirection:'column', alignItems:'flex-start'}}>
+                    <span className="brand-name">LootLook</span>
+                    <span style={{fontSize:'0.7rem', color:'var(--text-muted)', fontWeight:'600'}}>Hi, {fullName || username}</span>
+                </div>
+            </div>
             <div className="nav-actions">
                 <button className={`nav-btn ${globalSync ? 'spin' : ''}`} onClick={fetchItems} title="Sync"><Icons.Sync /></button>
                 <button className="nav-btn" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <Icons.Close /> : <Icons.Menu />}</button>
@@ -153,6 +178,7 @@ function App() {
             </div>
         </div>
       </nav>
+      {/* ... [Rest of Main Content Same as before] ... */}
       <main className="main-content">
         <section className="controls-panel">
             <form onSubmit={handleAdd} className="add-bar">
@@ -169,7 +195,6 @@ function App() {
                         <span className="snip-tag">View Snip</span>
                     </div>
                     <div className="card-body" onClick={() => openHistory(item)}>
-                        {/* Shared By Tag */}
                         {item.shared_by && <div className="shared-tag">Shared by {item.shared_by}</div>}
                         <h3 title={item.name}>{item.name}</h3>
                         <div className="meta-row">
@@ -185,10 +210,7 @@ function App() {
                     <div className="card-actions">
                         <button onClick={() => handleRefresh(item.id)} disabled={refreshingId === item.id} className="action-btn check" title="Check Price">{refreshingId === item.id ? '...' : <Icons.Check />}</button>
                         <button onClick={() => openHistory(item)} className="action-btn graph" title="Price History"><Icons.Graph /></button>
-                        
-                        {/* SHARE BUTTON (ICON ONLY) */}
                         <button onClick={() => openShareModal(item)} className="action-btn share-btn" title="Share Item"><Icons.Share /></button>
-                        
                         <button onClick={() => setEditingItem(item)} className="action-btn edit" title="Edit Item"><Icons.Edit /></button>
                         <a href={item.url} target="_blank" rel="noreferrer" className="action-btn visit" title="Webpage"><Icons.Web /></a>
                         <button onClick={() => handleDelete(item.id)} className="action-btn remove" title="Delete Item"><Icons.Remove /></button>
@@ -198,31 +220,12 @@ function App() {
             {items.length === 0 && !loading && <div className="empty-state">No items yet. Add one above!</div>}
         </section>
       </main>
+      
       {/* Modals */}
       {selectedItem && (<div className="modal-backdrop" onClick={() => setSelectedItem(null)}><div className="modal-box" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>History</h3><button onClick={() => setSelectedItem(null)}>×</button></div><div className="modal-body graph-body"><ResponsiveContainer width="100%" height={300}><LineChart data={history} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}><XAxis dataKey="date" stroke="currentColor" fontSize={12} /><YAxis stroke="currentColor" domain={['auto', 'auto']} /><Tooltip contentStyle={{backgroundColor: 'var(--bg-panel)', border:'none', color:'var(--text-main)'}} /><Line type="monotone" dataKey="price" stroke="var(--primary)" strokeWidth={3} dot={{r: 4, fill:'#38bdf8'}} activeDot={{r: 6}} /><ReferenceLine y={graphStats.min} stroke="var(--accent-green)" strokeDasharray="3 3"><Label value={`Min: ${graphStats.min}`} position="insideBottomRight" fill="var(--accent-green)" fontSize={10} /></ReferenceLine><ReferenceLine y={graphStats.max} stroke="var(--danger)" strokeDasharray="3 3"><Label value={`Max: ${graphStats.max}`} position="insideTopRight" fill="var(--danger)" fontSize={10} /></ReferenceLine></LineChart></ResponsiveContainer></div></div></div>)}
       {editingItem && (<div className="modal-backdrop" onClick={() => setEditingItem(null)}><div className="modal-box" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>Edit</h3><button onClick={() => setEditingItem(null)}>×</button></div><form onSubmit={handleUpdate} className="modal-body form-body"><div className="form-group"><label>Link</label><div className="input-group"><input value={editingItem.url} onChange={e => setEditingItem({...editingItem, url: e.target.value})} /><button type="button" className="copy-btn" onClick={() => copyToClipboard(editingItem.url)} title="Copy Link"><Icons.Copy /></button></div></div><div className="form-group"><label>Retention</label><select value={editingItem.retention_days} onChange={e => setEditingItem({...editingItem, retention_days: e.target.value})}><option value="30">30 Days</option><option value="365">1 Year</option></select></div><button type="submit" className="save-btn">Save</button></form></div></div>)}
       {viewImageItem && (<div className="modal-backdrop" onClick={() => setViewImageItem(null)}><div className="modal-box image-modal" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>Snip</h3><button onClick={() => setViewImageItem(null)}>×</button></div><div className="modal-body" style={{padding:0, display:'flex', justifyContent:'center', background:'#000'}}><img src={getImageSrc(viewImageItem)} alt="Snip" style={{maxWidth:'100%', maxHeight:'80vh', objectFit:'contain'}} /></div></div></div>)}
-
-      {/* SHARE MODAL */}
-      {shareItem && (
-        <div className="modal-backdrop" onClick={() => setShareItem(null)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <div className="modal-head"><h3>Share Item</h3><button onClick={() => setShareItem(null)}>×</button></div>
-            <div className="modal-body">
-                <p style={{marginBottom: '15px', color: 'var(--text-muted)'}}>Select a user to share <b>{shareItem.name.substring(0, 20)}...</b> with:</p>
-                <div className="user-list">
-                    {users.map(u => (
-                        <div key={u.id} className="user-item" onClick={() => handleShare(u.id)}>
-                            <span>{u.username}</span>
-                            <button className="share-action-btn">Send</button>
-                        </div>
-                    ))}
-                    {users.length === 0 && <p>No other users found.</p>}
-                </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {shareItem && (<div className="modal-backdrop" onClick={() => setShareItem(null)}><div className="modal-box" onClick={e => e.stopPropagation()}><div className="modal-head"><h3>Share Item</h3><button onClick={() => setShareItem(null)}>×</button></div><div className="modal-body"><p style={{marginBottom: '15px', color: 'var(--text-muted)'}}>Select a user to share <b>{shareItem.name.substring(0, 20)}...</b> with:</p><div className="user-list">{users.map(u => (<div key={u.id} className="user-item" onClick={() => handleShare(u.id)}><span>{u.username}</span><button className="share-action-btn">Send</button></div>))}{users.length === 0 && <p>No other users found.</p>}</div></div></div></div>)}
     </div>
   );
 }
