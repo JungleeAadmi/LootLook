@@ -287,3 +287,39 @@ h3 {
 }
 .unshare-btn svg { width: 16px; height: 16px; }
 .unshare-btn:hover { background: var(--danger); color: #fff; }
+/* ... [Keep variables and base styles] ... */
+/* Add this specific rule for the auth theme toggle on mobile */
+.theme-float { 
+    position: absolute; top: 20px; right: 20px; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; opacity: 0.7; z-index: 101;
+}
+
+/* ... [Keep Header, Controls, Grid] ... */
+
+/* MOBILE OPTIMIZATIONS (Updated) */
+@media (max-width: 768px) {
+  .main-content { padding-top: 80px; padding-left: 10px; padding-right: 10px; }
+  
+  /* MOBILE AUTH: Clean & Simple */
+  .auth-box { 
+      background: transparent !important; 
+      border: none !important; 
+      box-shadow: none !important; 
+      backdrop-filter: none !important; 
+      -webkit-backdrop-filter: none !important;
+      padding: 20px; 
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 100vh;
+  }
+  
+  /* Hide "Welcome Back" */
+  .auth-box h2 { display: none; }
+  
+  /* Bigger Logo */
+  .brand-center .logo-box { width: 80px; height: 80px; margin-bottom: 20px; background: transparent; }
+  .brand-center .logo-icon { width: 80px; height: 80px; max-width: none; }
+  .brand-center h1 { font-size: 2.5rem; margin-top: 10px; }
+  
+  /* ... [Keep other mobile styles] ... */
+}

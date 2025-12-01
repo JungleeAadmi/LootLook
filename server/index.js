@@ -1,4 +1,3 @@
-// ... [Keep imports and setup] ...
 const express = require('express');
 const cors = require('cors');
 const path = require('path'); 
@@ -21,6 +20,7 @@ const JWT_SECRET = "lootlook-super-secret-key-change-this";
 
 app.use(cors());
 app.use(express.json());
+
 app.use('/screenshots', express.static(path.join(__dirname, 'screenshots')));
 const screenshotDir = path.join(__dirname, 'screenshots');
 if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir);
@@ -54,16 +54,17 @@ function cleanUrl(rawUrl) {
     } catch (e) { return rawUrl; }
 }
 
-// --- AUTH ROUTES (Keep as is) ---
+// --- AUTH ROUTES ---
 app.post('/api/register', async (req, res) => {
     const { username, password, name, gender, age } = req.body;
     if (!username || !password || !name) return res.status(400).json({ error: "Missing fields" });
+    
     const hashedPassword = await bcrypt.hash(password, 10);
     db.run(`INSERT INTO users (username, password, name, gender, age, created_at) VALUES (?, ?, ?, ?, ?, ?)`, 
         [username, hashedPassword, name, gender, age, new Date().toISOString()], 
         function(err) {
             if (err) return res.status(400).json({ error: "Username taken" });
-            res.json({ message: "Registered" });
+            res.json({ message: "Registered successfully" });
         }
     );
 });
@@ -74,11 +75,13 @@ app.post('/api/login', (req, res) => {
         if (err || !user) return res.status(400).json({ error: "User not found" });
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) return res.status(403).json({ error: "Invalid password" });
+        // Return real name too
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET);
         res.json({ token, username: user.username, name: user.name });
     });
 });
 
+// --- USERS LIST (For Share) ---
 app.get('/api/users', authenticateToken, (req, res) => {
     db.all("SELECT id, username, name FROM users WHERE id != ?", [req.user.id], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -86,10 +89,9 @@ app.get('/api/users', authenticateToken, (req, res) => {
     });
 });
 
-// --- ITEM ROUTES (UPDATED FOR SOFT DELETE) ---
-
-// GET: Only non-deleted items
+// --- ITEMS ---
 app.get('/api/items', authenticateToken, (req, res) => {
+    // Get active items only
     const sql = `
         SELECT i.*, 
         (SELECT GROUP_CONCAT(u.username) FROM items shared_copy JOIN users u ON shared_copy.user_id = u.id WHERE shared_copy.original_item_id = i.id AND shared_copy.deleted = 0) as shared_with_names,
@@ -104,18 +106,14 @@ app.get('/api/items', authenticateToken, (req, res) => {
     });
 });
 
-// POST: Create new item
 app.post('/api/items', authenticateToken, async (req, res) => {
     const { url, retention } = req.body;
     const cleanedUrl = cleanUrl(url);
     const data = await scrapeProduct(cleanedUrl);
     if (!data) return res.status(500).json({ error: "Could not scrape link." });
-
     const now = new Date().toISOString();
-    // Added deleted=0 default
     const sql = `INSERT INTO items (user_id, url, name, image_url, screenshot_path, current_price, previous_price, currency, retention_days, last_checked, date_added, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`;
     const params = [req.user.id, cleanedUrl, data.title, data.image, data.screenshot, data.price, data.price, data.currency || '$', retention || 30, now, now];
-
     db.run(sql, params, function(err) {
         if (err) return res.status(400).json({ error: err.message });
         db.run(`INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)`, [this.lastID, data.price, now]);
@@ -124,38 +122,7 @@ app.post('/api/items', authenticateToken, async (req, res) => {
     });
 });
 
-// PUT: Edit Item
-app.put('/api/items/:id', authenticateToken, (req, res) => {
-    const { url, retention } = req.body;
-    db.run("UPDATE items SET url = ?, retention_days = ? WHERE id = ? AND user_id = ?", [cleanUrl(url), retention, req.params.id, req.user.id], function(err) {
-        if (err) return res.status(400).json({ error: err.message });
-        broadcastUpdate();
-        res.json({ message: "Updated" });
-    });
-});
-
-// DELETE: Soft Delete (Set deleted = 1)
-app.delete('/api/items/:id', authenticateToken, (req, res) => {
-    db.run("UPDATE items SET deleted = 1 WHERE id = ? AND user_id = ?", [req.params.id, req.user.id], (err) => {
-        if (err) return res.status(400).json({ error: err.message });
-        broadcastUpdate();
-        res.json({ message: "Moved to trash" });
-    });
-});
-
-// RESTORE: Undo Delete (Set deleted = 0)
-app.post('/api/items/:id/restore', authenticateToken, (req, res) => {
-    db.run("UPDATE items SET deleted = 0 WHERE id = ? AND user_id = ?", [req.params.id, req.user.id], (err) => {
-        if (err) return res.status(400).json({ error: err.message });
-        broadcastUpdate();
-        res.json({ message: "Restored" });
-    });
-});
-
-// HARD DELETE (Optional: For Janitor or explicit permanent delete)
-// Not exposed in UI for now to allow rollback safety
-
-// SHARE Logic
+// --- SHARE LOGIC ---
 app.post('/api/share', authenticateToken, (req, res) => {
     const { itemId, targetUserId } = req.body;
     const senderName = req.user.username;
@@ -176,11 +143,8 @@ app.post('/api/share', authenticateToken, (req, res) => {
     });
 });
 
-// UNSHARE Logic (Sets deleted=1 for recipient)
 app.post('/api/unshare', authenticateToken, (req, res) => {
     const { itemId, targetUserId } = req.body;
-    // Actually hard delete shared copies to "Revoke" access completely, or soft delete?
-    // Hard delete implies "I took it back".
     db.run("DELETE FROM items WHERE original_item_id = ? AND user_id = ?", [itemId, targetUserId], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         broadcastUpdate();
@@ -188,17 +152,31 @@ app.post('/api/unshare', authenticateToken, (req, res) => {
     });
 });
 
-// HISTORY
+// ... [Put, Delete(Soft), History, Refresh(Global), Export, Automation - Same as Gold Master] ...
+app.put('/api/items/:id', authenticateToken, (req, res) => {
+    const { url, retention } = req.body;
+    db.run("UPDATE items SET url = ?, retention_days = ? WHERE id = ? AND user_id = ?", [cleanUrl(url), retention, req.params.id, req.user.id], function(err) {
+        if (err) return res.status(400).json({ error: err.message });
+        broadcastUpdate();
+        res.json({ message: "Updated" });
+    });
+});
+app.delete('/api/items/:id', authenticateToken, (req, res) => {
+    db.run("UPDATE items SET deleted = 1 WHERE id = ? AND user_id = ?", [req.params.id, req.user.id], (err) => {
+        broadcastUpdate(); res.json({ message: "Moved to trash" });
+    });
+});
+app.post('/api/items/:id/restore', authenticateToken, (req, res) => {
+    db.run("UPDATE items SET deleted = 0 WHERE id = ? AND user_id = ?", [req.params.id, req.user.id], (err) => {
+        broadcastUpdate(); res.json({ message: "Restored" });
+    });
+});
 app.get('/api/history/:id', authenticateToken, (req, res) => {
     db.get("SELECT id FROM items WHERE id = ? AND user_id = ?", [req.params.id, req.user.id], (err, row) => {
         if(!row) return res.status(403).json({ error: "Access Denied" });
-        db.all("SELECT * FROM prices WHERE item_id = ? ORDER BY date ASC", [req.params.id], (err, rows) => {
-            res.json({ data: rows });
-        });
+        db.all("SELECT * FROM prices WHERE item_id = ? ORDER BY date ASC", [req.params.id], (err, rows) => { res.json({ data: rows }); });
     });
 });
-
-// REFRESH (Global)
 app.post('/api/refresh/:id', authenticateToken, (req, res) => {
     const id = req.params.id;
     db.get("SELECT url FROM items WHERE id = ?", [id], async (err, originItem) => {
@@ -206,37 +184,23 @@ app.post('/api/refresh/:id', authenticateToken, (req, res) => {
         const freshData = await scrapeProduct(originItem.url);
         if (freshData) {
             const now = new Date().toISOString();
-            // Update ALL items with same URL (Global Sync), ignore deleted ones or update them too?
-            // Usually we update even deleted ones so if restored they are fresh.
-            db.run("UPDATE items SET current_price = ?, last_checked = ?, screenshot_path = ? WHERE url = ?", 
-                [freshData.price, now, freshData.screenshot, originItem.url],
-                function() {
-                    db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", [id, freshData.price, now]);
-                    broadcastUpdate();
-                    res.json({ message: "Updated", price: freshData.price });
-                }
-            );
+            db.run("UPDATE items SET current_price = ?, last_checked = ?, screenshot_path = ? WHERE url = ?", [freshData.price, now, freshData.screenshot, originItem.url], function() {
+                db.run("INSERT INTO prices (item_id, price, date) VALUES (?, ?, ?)", [id, freshData.price, now]);
+                broadcastUpdate();
+                res.json({ message: "Updated", price: freshData.price });
+            });
         } else { res.status(500).json({ error: "Scrape failed" }); }
     });
 });
-
-// EXPORT (Only active items)
 app.get('/api/export', authenticateToken, (req, res) => {
     db.all("SELECT * FROM items WHERE user_id = ? AND deleted = 0", [req.user.id], (err, items) => {
-        if (err) return res.status(500).send("Error fetching data");
         const fields = ['name', 'url', 'current_price', 'currency', 'date_added', 'shared_by', 'shared_on'];
         const json2csvParser = new Parser({ fields });
         const csv = json2csvParser.parse(items);
-        res.header('Content-Type', 'text/csv');
-        res.attachment('lootlook_export.csv');
-        return res.send(csv);
+        res.header('Content-Type', 'text/csv'); res.attachment('lootlook_export.csv'); return res.send(csv);
     });
 });
-
-// AUTOMATION (Update all, even deleted?)
 cron.schedule('0 */8 * * *', () => {
-    // Only update items that are NOT deleted by ANYONE? Or update unique URLs regardless?
-    // Better to update unique URLs found in the DB.
     db.all("SELECT DISTINCT url FROM items WHERE deleted = 0", [], async (err, rows) => {
         if (err) return;
         let didUpdate = false;
@@ -252,10 +216,7 @@ cron.schedule('0 */8 * * *', () => {
         if(didUpdate) broadcastUpdate();
     });
 });
-
-// JANITOR (Empty Trash after 30 days of deletion? Or just retention days?)
 cron.schedule('0 0 * * *', () => {
-    // Original retention logic for price history points
     db.all("SELECT id, retention_days FROM items", [], (err, rows) => {
         rows.forEach(item => {
             const cutoffDate = new Date();
@@ -263,8 +224,6 @@ cron.schedule('0 0 * * *', () => {
             db.run("DELETE FROM prices WHERE item_id = ? AND date < ?", [item.id, cutoffDate.toISOString()], (err) => {});
         });
     });
-    
-    // HARD DELETE items marked as 'deleted' for > 30 days (Optional, not implemented here to be safe)
 });
 
 app.use(express.static(path.join(__dirname, '../client/dist')));
