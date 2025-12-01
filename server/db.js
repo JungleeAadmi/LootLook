@@ -14,7 +14,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 function initDb() {
     db.serialize(() => {
-        // Items Table Update
+        // Items Table
         db.run(`CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -31,25 +31,25 @@ function initDb() {
             shared_by TEXT,
             shared_on TEXT,
             original_item_id INTEGER,
+            deleted INTEGER DEFAULT 0, -- New Soft Delete Flag
             FOREIGN KEY(user_id) REFERENCES users(id)
         )`);
 
-        // Other tables remain same...
-        db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, created_at TEXT)`);
+        // ... [Keep other tables: users, prices] ...
+        db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, name TEXT, gender TEXT, age INTEGER, created_at TEXT)`);
         db.run(`CREATE TABLE IF NOT EXISTS prices (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, price REAL, date TEXT, FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE)`);
 
         // Migrations
         db.all("PRAGMA table_info(items)", (err, columns) => {
             if (err) return;
             const names = columns.map(c => c.name);
-            if (!names.includes('shared_on')) db.run("ALTER TABLE items ADD COLUMN shared_on TEXT");
-            if (!names.includes('original_item_id')) db.run("ALTER TABLE items ADD COLUMN original_item_id INTEGER");
-            // ... existing migrations ...
             if (!names.includes('previous_price')) db.run("ALTER TABLE items ADD COLUMN previous_price REAL DEFAULT 0");
             if (!names.includes('date_added')) db.run(`ALTER TABLE items ADD COLUMN date_added TEXT DEFAULT '${new Date().toISOString()}'`);
             if (!names.includes('screenshot_path')) db.run("ALTER TABLE items ADD COLUMN screenshot_path TEXT");
             if (!names.includes('user_id')) db.run("ALTER TABLE items ADD COLUMN user_id INTEGER DEFAULT 1");
             if (!names.includes('shared_by')) db.run("ALTER TABLE items ADD COLUMN shared_by TEXT");
+            // Add deleted column if missing
+            if (!names.includes('deleted')) db.run("ALTER TABLE items ADD COLUMN deleted INTEGER DEFAULT 0");
         });
     });
 }
