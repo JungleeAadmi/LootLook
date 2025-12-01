@@ -18,7 +18,7 @@ const Icons = {
   Web: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>,
   Visit: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>,
   Remove: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
-  Copy: () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>,
+  Copy: () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>,
   Export: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
   Logout: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
 };
@@ -121,21 +121,6 @@ function App() {
       return ( <div className="price-box"><span className="currency">{item.currency}</span><span className="amount">{item.current_price.toLocaleString()}</span>{hasChange && (<span className={`prev-price ${trend}`}>{trend === 'down' ? 'Was' : 'Low'} {item.previous_price.toLocaleString()}</span>)}</div> );
   };
 
-  // --- NEW: Date Formatter dd-mmm-yy ---
-  const formatDate = (dateString, showTime = false) => {
-      if (!dateString) return 'N/A';
-      const d = new Date(dateString);
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = d.toLocaleString('default', { month: 'short' });
-      const year = String(d.getFullYear()).slice(-2);
-      const datePart = `${day}-${month}-${year}`;
-      
-      if (!showTime) return datePart;
-      
-      const timePart = d.toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'});
-      return `${datePart} ${timePart}`;
-  };
-
   const graphStats = useMemo(() => { if(history.length === 0) return { min: 0, max: 0 }; const prices = history.map(h => h.price); return { min: Math.min(...prices), max: Math.max(...prices) }; }, [history]);
   const domains = [...new Set(items.map(i => getDomain(i.url)))].sort((a, b) => a.localeCompare(b));
   const uniqueDomains = ['ALL', ...domains];
@@ -145,6 +130,7 @@ function App() {
   if (!token) {
       return (
         <div className={`app-wrapper ${theme} auth-screen`}>
+            <button className="theme-float" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
             <div className="auth-box">
                 <div className="brand-center">
                     <div className="logo-box"><img src="/logo.svg" alt="Logo" className="logo-icon" /></div>
@@ -170,8 +156,17 @@ function App() {
                 <span className="brand-name">LootLook</span>
             </div>
             <div className="nav-actions">
-                <button className={`nav-btn ${globalSync ? 'spin' : ''}`} onClick={fetchItems} title="Sync"><Icons.Sync /></button>
-                <button className="nav-btn" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <Icons.Close /> : <Icons.Menu />}</button>
+                {/* ALWAYS VISIBLE SYNC */}
+                <button className={`nav-btn ${globalSync ? 'spin' : ''}`} onClick={fetchItems} title="Sync">
+                    <Icons.Sync />
+                </button>
+
+                {/* HAMBURGER MENU */}
+                <button className="nav-btn" onClick={() => setMenuOpen(!menuOpen)}>
+                    {menuOpen ? <Icons.Close /> : <Icons.Menu />}
+                </button>
+
+                {/* DROPDOWN */}
                 {menuOpen && (
                     <div className="menu-dropdown">
                         <div className="menu-item" onClick={handleCheckAll}>⚡ Check All</div>
@@ -206,11 +201,7 @@ function App() {
                         <h3 title={item.name}>{item.name}</h3>
                         <div className="meta-row">
                             {renderPriceBox(item)}
-                            <div className="timestamps">
-                                <span className="date-added">Added: {formatDate(item.date_added, false)}</span>
-                                <span className="separator">|</span>
-                                <span className="date-checked">Checked: {formatDate(item.last_checked, true)}</span>
-                            </div>
+                            <span className="date-added">Added: {item.date_added ? new Date(item.date_added).toLocaleDateString(undefined, {day:'2-digit', month:'short'}) : 'N/A'}</span>
                         </div>
                         <div className="domain-row"><span className="badge">{getDomain(item.url)}</span></div>
                     </div>
